@@ -299,13 +299,15 @@
       statusContainer.className = "status-tracker";
       statusContainer.innerText = "Status: Remote track received successfully!";
       remoteVideo.srcObject = e.streams[0];
-      setupPanel.classList.add('hidden');
+      // Hiding setupPanel removed from here to allow user to copy response key
     };
     
     pc.onconnectionstatechange = () => {
       statusContainer.className = "status-tracker";
       statusContainer.innerText = "Status: WebRTC state is " + pc.connectionState;
-      if (pc.connectionState === 'connected') setupPanel.classList.add('hidden');
+      if (pc.connectionState === 'connected') {
+        setupPanel.classList.add('hidden');
+      }
     };
 
     return pc;
