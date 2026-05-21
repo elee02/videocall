@@ -21,7 +21,9 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg-color);
       color: var(--text);
+      /* 100dvh fixes the missing controls on mobile by accounting for the browser's address bar */
       height: 100vh;
+      height: 100dvh; 
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -40,7 +42,8 @@
     #remoteVideo {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      /* Changed from cover to contain so 16:9 fits on phone screens without cropping */
+      object-fit: contain; 
       background: #050505;
     }
 
@@ -173,7 +176,6 @@
     #toast.show { transform: translateX(-50%) translateY(0); }
 
     @media (min-width: 768px) {
-      #remoteVideo { object-fit: contain; }
       #localVideo { width: 180px; height: 135px; top: 30px; right: 30px; }
       .control-bar { height: 95px; gap: 30px; }
       .circle-btn { width: 56px; height: 56px; font-size: 1.4rem; }
@@ -200,7 +202,7 @@
       <div id="panelOfferCreated" class="hidden">
         <h3>1. Your Invite Key</h3>
         <div class="status-tracker" id="statusOffer">Status: Ready...</div>
-        <textarea id="txtLocalOffer" readonly placeholder="Waiting for processing..."></textarea>
+        <textarea id="txtLocalOffer" readonly placeholder="Waiting for processing..." onclick="this.select()"></textarea>
         <button class="action-btn" id="btnCopyOffer">📋 Copy Key</button>
         
         <hr style="border:0; border-top:1px solid #2a3942; margin:15px 0;">
@@ -219,7 +221,7 @@
         <div id="boxAnswerOutput" class="hidden">
           <hr style="border:0; border-top:1px solid #2a3942; margin:15px 0;">
           <h3>Your Response Key</h3>
-          <textarea id="txtLocalAnswer" readonly></textarea>
+          <textarea id="txtLocalAnswer" readonly onclick="this.select()"></textarea>
           <button class="action-btn" id="btnCopyAnswer">📋 Copy Response Key</button>
         </div>
       </div>
@@ -263,7 +265,15 @@
   }
 
   function cleanKeyString(str) {
-    return str.replace(/[^A-Za-z0-9+/=]/g, "");
+    // 1. Strip whitespaces and random symbols
+    let s = str.replace(/[^A-Za-z0-9+/=]/g, "");
+    
+    // 2. Auto-repair missing padding ('==') that gets lost during mobile double-tap selections
+    while (s.length % 4 !== 0) {
+      s += "=";
+    }
+    
+    return s;
   }
 
   async function initMedia(facing = 'user') {
@@ -282,11 +292,8 @@
   }
 
   function buildPeerConnection(statusContainer) {
-    // 1. Clean up old connections to prevent unwanted side-effects/stray track events
     if (peerConnection) {
-      try {
-        peerConnection.close();
-      } catch(e) { console.error("Error closing old connection:", e); }
+      try { peerConnection.close(); } catch(e) {}
       peerConnection = null;
     }
 
@@ -299,7 +306,6 @@
       statusContainer.className = "status-tracker";
       statusContainer.innerText = "Status: Remote track received successfully!";
       remoteVideo.srcObject = e.streams[0];
-      // Hiding setupPanel removed from here to allow user to copy response key
     };
     
     pc.onconnectionstatechange = () => {
@@ -325,7 +331,6 @@
       statusOffer.innerText = "Status: Initializing Peer Pipeline engine...";
       peerConnection = buildPeerConnection(statusOffer);
 
-      // Setup state change handler BEFORE triggering setLocalDescription to avoid race conditions
       peerConnection.onicegatheringstatechange = () => {
         if (peerConnection.iceGatheringState === 'complete') {
           txtLocalOffer.value = btoa(JSON.stringify(peerConnection.localDescription));
@@ -337,7 +342,6 @@
       await peerConnection.setLocalDescription(offer);
       statusOffer.innerText = "Status: Harvesting local ICE router configurations...";
 
-      // Fallback check if ICE gathering is instantly completed
       if (peerConnection.iceGatheringState === 'complete') {
         txtLocalOffer.value = btoa(JSON.stringify(peerConnection.localDescription));
         statusOffer.innerText = "Status: Offer Key Complete! Click copy below.";
@@ -394,7 +398,6 @@
       statusJoin.innerText = "Status: Generating reciprocal session architecture...";
       const answer = await peerConnection.createAnswer();
 
-      // Setup state change handler BEFORE triggering setLocalDescription to avoid race conditions
       peerConnection.onicegatheringstatechange = () => {
         if (peerConnection.iceGatheringState === 'complete') {
           txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
@@ -408,7 +411,6 @@
       boxAnswerOutput.classList.remove('hidden'); 
       txtLocalAnswer.value = "Assembling cryptographic signature network key...";
 
-      // Fallback check if ICE gathering is instantly completed
       if (peerConnection.iceGatheringState === 'complete') {
         txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
         statusJoin.innerText = "Status: Success! Copy your Response Key below.";
