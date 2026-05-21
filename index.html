@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pro Direct Call (Fault Tolerant)</title>
+  <style>
+    :root {
+      --bg-color: #0b141a;
+      --panel-bg: #111b21;
+      --accent: #00a884;
+      --accent-hover: #008f72;
+      --danger: #ea0038;
+      --text: #e9edef;
+      --text-muted: #8696a0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .video-container {
+      flex: 1;
+      position: relative;
+      background: #000;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #remoteVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #050505;
+    }
+
+    #localVideo {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 110px;
+      height: 150px;
+      border-radius: 12px;
+      object-fit: cover;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.15);
+      z-index: 10;
+      background: #1e1e1e;
+      cursor: pointer;
+    }
+
+    .overlay-panel {
+      position: absolute;
+      background: rgba(17, 27, 33, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.08);
+      z-index: 20;
+      width: 92%;
+      max-width: 420px;
+      text-align: center;
+    }
+
+    .hidden { display: none !important; }
+
+    h3 { font-size: 1.1rem; margin-bottom: 10px; color: var(--text); font-weight: 600; }
+    p { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.4; }
+
+    .status-tracker {
+      background: #000;
+      color: #00ffcc;
+      font-family: monospace;
+      font-size: 0.75rem;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      text-align: left;
+      border: 1px solid #2a3942;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .status-tracker.err { color: #ff3b30; border-color: var(--danger); }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+      background: #000;
+      border: 1px solid #2a3942;
+      color: #fff;
+      font-family: monospace;
+      font-size: 0.75rem;
+      padding: 10px;
+      border-radius: 8px;
+      resize: none;
+      margin-bottom: 14px;
+      user-select: text;
+    }
+
+    .action-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .action-btn:hover { background: var(--accent-hover); }
+    .action-btn.secondary { background: #2a3942; color: var(--text); }
+
+    .control-bar {
+      height: 85px;
+      background: var(--panel-bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 24px;
+      padding-bottom: env(safe-area-inset-bottom);
+      z-index: 30;
+      border-top: 1px solid rgba(255,255,255,0.03);
+    }
+
+    .circle-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: #2a3942;
+      border: none;
+      color: white;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .circle-btn.off { background: var(--danger); }
+
+    #toast {
+      position: absolute;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: #1e2a30;
+      color: var(--text);
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 0.9rem;
+      z-index: 100;
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    @media (min-width: 768px) {
+      #remoteVideo { object-fit: contain; }
+      #localVideo { width: 180px; height: 135px; top: 30px; right: 30px; }
+      .control-bar { height: 95px; gap: 30px; }
+      .circle-btn { width: 56px; height: 56px; font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="toast">Copied!</div>
+
+  <div class="video-container">
+    <video id="remoteVideo" autoplay playsinline></video>
+    <video id="localVideo" autoplay muted playsinline></video>
+
+    <div id="setupPanel" class="overlay-panel">
+      
+      <div id="panelInit">
+        <h3>Direct P2P Call</h3>
+        <p>Pure device-to-device streaming. No middleware logs or accounts.</p>
+        <button class="action-btn" id="btnCreateOffer">📞 Create Invite Key</button>
+        <button class="action-btn secondary" id="btnGoToJoin">📥 I Have an Invite Key</button>
+      </div>
+
+      <div id="panelOfferCreated" class="hidden">
+        <h3>1. Your Invite Key</h3>
+        <div class="status-tracker" id="statusOffer">Status: Ready...</div>
+        <textarea id="txtLocalOffer" readonly placeholder="Waiting for processing..."></textarea>
+        <button class="action-btn" id="btnCopyOffer">📋 Copy Key</button>
+        
+        <hr style="border:0; border-top:1px solid #2a3942; margin:15px 0;">
+        
+        <h3>2. Paste Friend's Response</h3>
+        <textarea id="txtRemoteAnswer" placeholder="Paste response key here..."></textarea>
+        <button class="action-btn secondary" id="btnLinkStreams">🔓 Link Video Feeds</button>
+      </div>
+
+      <div id="panelReceiveOffer" class="hidden">
+        <h3>Join Call Connection</h3>
+        <div class="status-tracker" id="statusJoin">Status: Awaiting input string...</div>
+        <textarea id="txtRemoteOfferInput" placeholder="Paste invite key here..."></textarea>
+        <button class="action-btn" id="btnProcessOffer">✅ Process & Create Response</button>
+        
+        <div id="boxAnswerOutput" class="hidden">
+          <hr style="border:0; border-top:1px solid #2a3942; margin:15px 0;">
+          <h3>Your Response Key</h3>
+          <textarea id="txtLocalAnswer" readonly></textarea>
+          <button class="action-btn" id="btnCopyAnswer">📋 Copy Response Key</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="control-bar">
+    <button class="circle-btn" id="btnMute">🎙️</button>
+    <button class="circle-btn" id="btnCam">📹</button>
+    <button class="circle-btn" id="btnFlip">🔄</button>
+  </div>
+
+<script>
+  let localStream, peerConnection;
+  let currentFacingMode = 'user';
+  const pcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+  const localVideo = document.getElementById('localVideo');
+  const remoteVideo = document.getElementById('remoteVideo');
+  const setupPanel = document.getElementById('setupPanel');
+  
+  const panelInit = document.getElementById('panelInit');
+  const panelOfferCreated = document.getElementById('panelOfferCreated');
+  const panelReceiveOffer = document.getElementById('panelReceiveOffer');
+  const boxAnswerOutput = document.getElementById('boxAnswerOutput');
+
+  const txtLocalOffer = document.getElementById('txtLocalOffer');
+  const txtRemoteAnswer = document.getElementById('txtRemoteAnswer');
+  const txtRemoteOfferInput = document.getElementById('txtRemoteOfferInput');
+  const txtLocalAnswer = document.getElementById('txtLocalAnswer');
+
+  const statusOffer = document.getElementById('statusOffer');
+  const statusJoin = document.getElementById('statusJoin');
+
+  function showToast(text) {
+    const t = document.getElementById('toast');
+    t.innerText = text;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // Sanitizes keys by removing spaces, newlines, tabs, and non-base64 characters
+  function cleanKeyString(str) {
+    return str.replace(/[^A-Za-z0-9+/=]/g, "");
+  }
+
+  async function initMedia(facing = 'user') {
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: true
+      });
+      localVideo.srcObject = localStream;
+      currentFacingMode = facing;
+      return localStream;
+    } catch (e) {
+      throw new Error("Media Capture Failed: " + e.message);
+    }
+  }
+
+  function buildPeerConnection(statusContainer) {
+    const pc = new RTCPeerConnection(pcConfig);
+    if (localStream) {
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    }
+    
+    pc.ontrack = e => {
+      statusContainer.className = "status-tracker";
+      statusContainer.innerText = "Status: Remote track received successfully!";
+      remoteVideo.srcObject = e.streams[0];
+      setupPanel.classList.add('hidden');
+    };
+    
+    pc.onconnectionstatechange = () => {
+      statusContainer.className = "status-tracker";
+      statusContainer.innerText = "Status: WebRTC state is " + pc.connectionState;
+      if (pc.connectionState === 'connected') setupPanel.classList.add('hidden');
+    };
+
+    return pc;
+  }
+
+  // --- WORKFLOW 1: GENERATE CALL ---
+  document.getElementById('btnCreateOffer').addEventListener('click', async () => {
+    panelInit.classList.add('hidden');
+    panelOfferCreated.classList.remove('hidden');
+    statusOffer.className = "status-tracker";
+    statusOffer.innerText = "Status: Requesting camera/microphone paths...";
+
+    try {
+      await initMedia();
+      statusOffer.innerText = "Status: Initializing Peer Pipeline engine...";
+      peerConnection = buildPeerConnection(statusOffer);
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      statusOffer.innerText = "Status: Harvesting local ICE router configurations...";
+
+      peerConnection.onicegatheringstatechange = () => {
+        if (peerConnection.iceGatheringState === 'complete') {
+          txtLocalOffer.value = btoa(JSON.stringify(peerConnection.localDescription));
+          statusOffer.innerText = "Status: Offer Key Complete! Click copy below.";
+        }
+      };
+    } catch(e) {
+      statusOffer.className = "status-tracker err";
+      statusOffer.innerText = "Error: " + e.message;
+    }
+  });
+
+  document.getElementById('btnCopyOffer').addEventListener('click', () => {
+    if (!txtLocalOffer.value) return;
+    navigator.clipboard.writeText(txtLocalOffer.value);
+    showToast("Key copied!");
+  });
+
+  document.getElementById('btnLinkStreams').addEventListener('click', async () => {
+    const answerRaw = cleanKeyString(txtRemoteAnswer.value);
+    if(!answerRaw) return alert("Please paste your friend's response key.");
+    
+    try {
+      statusOffer.className = "status-tracker";
+      statusOffer.innerText = "Status: Merging response profiles...";
+      const sdp = JSON.parse(atob(answerRaw));
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+      statusOffer.innerText = "Status: Synchronizing feed handshakes...";
+    } catch(e) {
+      statusOffer.className = "status-tracker err";
+      statusOffer.innerText = "Handshake Error: " + e.message + "\nEnsure the string wasn't cut off.";
+    }
+  });
+
+  // --- WORKFLOW 2: RECEIVE CALL ---
+  document.getElementById('btnGoToJoin').addEventListener('click', () => {
+    panelInit.classList.add('hidden');
+    panelReceiveOffer.classList.remove('hidden');
+  });
+
+  document.getElementById('btnProcessOffer').addEventListener('click', async () => {
+    const offerRaw = cleanKeyString(txtRemoteOfferInput.value);
+    if(!offerRaw) return alert("Please paste the invite key first.");
+
+    statusJoin.className = "status-tracker";
+    statusJoin.innerText = "Status: Cleaning string & firing up camera channels...";
+
+    try {
+      await initMedia();
+      statusJoin.innerText = "Status: Parsing parameters & spawning peer node connection...";
+      peerConnection = buildPeerConnection(statusJoin);
+
+      const sdp = JSON.parse(atob(offerRaw));
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+
+      statusJoin.innerText = "Status: Generating reciprocal session architecture...";
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      
+      statusJoin.innerText = "Status: Collecting return router addresses...";
+      boxAnswerOutput.classList.remove('hidden'); 
+      txtLocalAnswer.value = "Assembling cryptographic signature network key...";
+
+      peerConnection.onicegatheringstatechange = () => {
+        if (peerConnection.iceGatheringState === 'complete') {
+          txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
+          statusJoin.innerText = "Status: Success! Copy your Response Key below.";
+        }
+      };
+    } catch(e) {
+      statusJoin.className = "status-tracker err";
+      statusJoin.innerText = "Runtime Error: " + e.message;
+    }
+  });
+
+  document.getElementById('btnCopyAnswer').addEventListener('click', () => {
+    if (!txtLocalAnswer.value) return;
+    navigator.clipboard.writeText(txtLocalAnswer.value);
+    showToast("Response key copied!");
+  });
+
+  // Peripheral Controls
+  document.getElementById('btnMute').addEventListener('click', (e) => {
+    if (!localStream) return;
+    const track = localStream.getAudioTracks()[0];
+    if (track) {
+      track.enabled = !track.enabled;
+      e.target.classList.toggle('off', !track.enabled);
+      e.target.innerText = track.enabled ? '🎙️' : '🔇';
+    }
+  });
+
+  document.getElementById('btnCam').addEventListener('click', (e) => {
+    if (!localStream) return;
+    const track = localStream.getVideoTracks()[0];
+    if (track) {
+      track.enabled = !track.enabled;
+      e.target.classList.toggle('off', !track.enabled);
+      e.target.innerText = track.enabled ? '📹' : '❌';
+    }
+  });
+
+  document.getElementById('btnFlip').addEventListener('click', async () => {
+    const targetMode = currentFacingMode === 'user' ? 'environment' : 'user';
+    try {
+      const stream = await initMedia(targetMode);
+      if (stream && peerConnection) {
+        const videoTrack = stream.getVideoTracks()[0];
+        const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender && videoTrack) sender.replaceTrack(videoTrack);
+      }
+    } catch(e) { console.error(e); }
+  });
+
+  localVideo.addEventListener('click', () => {
+    const remSrc = remoteVideo.srcObject;
+    const locSrc = localVideo.srcObject;
+    remoteVideo.srcObject = locSrc;
+    localVideo.srcObject = remSrc;
+    localVideo.muted = true; 
+  });
+</script>
+</body>
+</html>
