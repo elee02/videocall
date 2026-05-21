@@ -262,7 +262,6 @@
     setTimeout(() => t.classList.remove('show'), 3000);
   }
 
-  // Sanitizes keys by removing spaces, newlines, tabs, and non-base64 characters
   function cleanKeyString(str) {
     return str.replace(/[^A-Za-z0-9+/=]/g, "");
   }
@@ -283,6 +282,14 @@
   }
 
   function buildPeerConnection(statusContainer) {
+    // 1. Clean up old connections to prevent unwanted side-effects/stray track events
+    if (peerConnection) {
+      try {
+        peerConnection.close();
+      } catch(e) { console.error("Error closing old connection:", e); }
+      peerConnection = null;
+    }
+
     const pc = new RTCPeerConnection(pcConfig);
     if (localStream) {
       localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -316,16 +323,23 @@
       statusOffer.innerText = "Status: Initializing Peer Pipeline engine...";
       peerConnection = buildPeerConnection(statusOffer);
 
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-      statusOffer.innerText = "Status: Harvesting local ICE router configurations...";
-
+      // Setup state change handler BEFORE triggering setLocalDescription to avoid race conditions
       peerConnection.onicegatheringstatechange = () => {
         if (peerConnection.iceGatheringState === 'complete') {
           txtLocalOffer.value = btoa(JSON.stringify(peerConnection.localDescription));
           statusOffer.innerText = "Status: Offer Key Complete! Click copy below.";
         }
       };
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      statusOffer.innerText = "Status: Harvesting local ICE router configurations...";
+
+      // Fallback check if ICE gathering is instantly completed
+      if (peerConnection.iceGatheringState === 'complete') {
+        txtLocalOffer.value = btoa(JSON.stringify(peerConnection.localDescription));
+        statusOffer.innerText = "Status: Offer Key Complete! Click copy below.";
+      }
     } catch(e) {
       statusOffer.className = "status-tracker err";
       statusOffer.innerText = "Error: " + e.message;
@@ -377,18 +391,26 @@
 
       statusJoin.innerText = "Status: Generating reciprocal session architecture...";
       const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      
-      statusJoin.innerText = "Status: Collecting return router addresses...";
-      boxAnswerOutput.classList.remove('hidden'); 
-      txtLocalAnswer.value = "Assembling cryptographic signature network key...";
 
+      // Setup state change handler BEFORE triggering setLocalDescription to avoid race conditions
       peerConnection.onicegatheringstatechange = () => {
         if (peerConnection.iceGatheringState === 'complete') {
           txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
           statusJoin.innerText = "Status: Success! Copy your Response Key below.";
         }
       };
+
+      await peerConnection.setLocalDescription(answer);
+      
+      statusJoin.innerText = "Status: Collecting return router addresses...";
+      boxAnswerOutput.classList.remove('hidden'); 
+      txtLocalAnswer.value = "Assembling cryptographic signature network key...";
+
+      // Fallback check if ICE gathering is instantly completed
+      if (peerConnection.iceGatheringState === 'complete') {
+        txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
+        statusJoin.innerText = "Status: Success! Copy your Response Key below.";
+      }
     } catch(e) {
       statusJoin.className = "status-tracker err";
       statusJoin.innerText = "Runtime Error: " + e.message;
@@ -438,6 +460,7 @@
     const remSrc = remoteVideo.srcObject;
     const locSrc = localVideo.srcObject;
     remoteVideo.srcObject = locSrc;
+    localVideo.localVideo = remSrc;
     localVideo.srcObject = remSrc;
     localVideo.muted = true; 
   });
