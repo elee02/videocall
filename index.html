@@ -38,11 +38,13 @@
       justify-content: center;
     }
 
+    /* Standard Layout */
     #remoteVideo {
       width: 100%;
       height: 100%;
       object-fit: contain; 
       background: #050505;
+      transition: all 0.3s ease;
     }
 
     #localVideo {
@@ -59,6 +61,34 @@
       background: #1e1e1e;
       cursor: pointer;
       transition: all 0.3s ease;
+    }
+
+    /* Swapped Layout (CSS visual swap only, preserves audio routing) */
+    .video-container.swapped #localVideo {
+      position: relative;
+      top: 0; right: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      object-fit: contain;
+      box-shadow: none;
+      border: none;
+      z-index: 1;
+      cursor: default;
+    }
+    
+    .video-container.swapped #remoteVideo {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 110px;
+      height: 150px;
+      border-radius: 12px;
+      object-fit: cover;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.15);
+      z-index: 10;
+      cursor: pointer;
     }
 
     .overlay-panel {
@@ -105,7 +135,7 @@
       gap: 8px;
       margin-bottom: 10px;
       padding-right: 5px;
-      user-select: text; /* Allow copying messages */
+      user-select: text;
     }
 
     .chat-msg {
@@ -121,10 +151,7 @@
     .msg-local { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 2px; }
     .msg-remote { align-self: flex-start; background: #2a3942; color: #fff; border-bottom-left-radius: 2px; }
 
-    .chat-controls {
-      display: flex;
-      gap: 8px;
-    }
+    .chat-controls { display: flex; gap: 8px; }
 
     #chatInput {
       flex: 1;
@@ -212,20 +239,20 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 15px; /* Reduced gap to fit more buttons */
+      gap: 12px; 
       padding-bottom: env(safe-area-inset-bottom);
       z-index: 30;
       border-top: 1px solid rgba(255,255,255,0.03);
     }
 
     .circle-btn {
-      width: 48px;
-      height: 48px;
+      width: 46px;
+      height: 46px;
       border-radius: 50%;
       background: #2a3942;
       border: none;
       color: white;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -266,6 +293,7 @@
 
     @media (min-width: 768px) {
       #localVideo { width: 180px; height: 135px; top: 30px; right: 30px; }
+      .video-container.swapped #remoteVideo { width: 180px; height: 135px; top: 30px; right: 30px; }
       .control-bar { height: 95px; gap: 20px; }
       .circle-btn { width: 52px; height: 52px; font-size: 1.3rem; }
       #chatPanel { bottom: 110px; right: 30px; left: auto; transform: none; width: 320px; }
@@ -276,7 +304,7 @@
 
   <div id="toast">Copied!</div>
 
-  <div class="video-container">
+  <div class="video-container" id="videoContainer">
     <video id="remoteVideo" autoplay playsinline></video>
     <video id="localVideo" autoplay muted playsinline></video>
 
@@ -335,6 +363,7 @@
     <button class="circle-btn" id="btnChatToggle" title="Chat">
       💬<span id="unreadBadge" class="unread-badge"></span>
     </button>
+    <button class="circle-btn off hidden" id="btnEndCall" title="End Call">❌</button>
   </div>
 
 <script>
@@ -345,7 +374,7 @@
 
   const pcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-  // DOM Elements
+  const videoContainer = document.getElementById('videoContainer');
   const localVideo = document.getElementById('localVideo');
   const remoteVideo = document.getElementById('remoteVideo');
   const setupPanel = document.getElementById('setupPanel');
@@ -368,6 +397,15 @@
   const chatInput = document.getElementById('chatInput');
   const unreadBadge = document.getElementById('unreadBadge');
   const btnChatToggle = document.getElementById('btnChatToggle');
+  const btnEndCall = document.getElementById('btnEndCall');
+
+  // Guard to prevent accidental reloads mid-call
+  window.addEventListener('beforeunload', (e) => {
+    if (peerConnection && peerConnection.connectionState === 'connected') {
+      e.preventDefault();
+      e.returnValue = ''; // Trigger browser confirmation dialog
+    }
+  });
 
   function showToast(text) {
     const t = document.getElementById('toast');
@@ -413,7 +451,7 @@
     msgDiv.className = `chat-msg ${className}`;
     msgDiv.innerText = text;
     chatMessages.appendChild(msgDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
   document.getElementById('btnSend').addEventListener('click', sendMessage);
@@ -451,7 +489,6 @@
       localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
     }
     
-    // Receive Chat Channel (For the Answerer)
     pc.ondatachannel = (e) => {
       dataChannel = e.channel;
       setupDataChannel(dataChannel);
@@ -466,8 +503,14 @@
     pc.onconnectionstatechange = () => {
       statusContainer.className = "status-tracker";
       statusContainer.innerText = "Status: WebRTC state is " + pc.connectionState;
+      
       if (pc.connectionState === 'connected') {
         setupPanel.classList.add('hidden');
+        btnEndCall.classList.remove('hidden'); // Show end call button
+      }
+      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+        alert("The other person disconnected.");
+        window.location.reload(); // Hard reset
       }
     };
 
@@ -486,7 +529,6 @@
       statusOffer.innerText = "Status: Initializing Peer Pipeline engine...";
       peerConnection = buildPeerConnection(statusOffer);
 
-      // Create Chat Channel (For the Offerer)
       dataChannel = peerConnection.createDataChannel('chat');
       setupDataChannel(dataChannel);
 
@@ -601,7 +643,6 @@
 
   document.getElementById('btnCam').addEventListener('click', (e) => {
     if (!localStream) return;
-    // Don't turn off camera if we are screen sharing, as the screen share replaced it in the UI
     if (isScreenSharing) return alert("Stop screen sharing first.");
     
     const track = localStream.getVideoTracks()[0];
@@ -612,44 +653,63 @@
     }
   });
 
+  // Camera Flip - Only replaces video track so audio doesn't drop
   document.getElementById('btnFlip').addEventListener('click', async () => {
-    if (isScreenSharing) return; // Cannot flip camera while screen sharing
+    if (isScreenSharing) return; 
     const targetMode = currentFacingMode === 'user' ? 'environment' : 'user';
     try {
-      const stream = await initMedia(targetMode);
-      if (stream && peerConnection) {
-        const videoTrack = stream.getVideoTracks()[0];
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: targetMode }, width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+      
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      const oldVideoTrack = localStream.getVideoTracks()[0];
+      
+      if (peerConnection) {
         const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-        if (sender && videoTrack) sender.replaceTrack(videoTrack);
+        if (sender) sender.replaceTrack(newVideoTrack);
       }
-    } catch(e) { console.error(e); }
+
+      if (oldVideoTrack) {
+        oldVideoTrack.stop();
+        localStream.removeTrack(oldVideoTrack);
+      }
+      localStream.addTrack(newVideoTrack);
+      
+      currentFacingMode = targetMode;
+    } catch(e) { 
+      console.error(e);
+      showToast("Cannot flip camera.");
+    }
   });
 
-  // Screen Sharing Logic
+  // Screen Sharing - Safely handles mobile OS restrictions
   document.getElementById('btnScreen').addEventListener('click', async (e) => {
     if (!peerConnection) return alert("Connect to a call first!");
+    
+    // Check hardware/browser support before trying
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      return alert("Screen sharing is not supported by your current browser or mobile operating system.");
+    }
+
     const btn = e.target;
 
     if (!isScreenSharing) {
       try {
-        // Request screen share from the browser
         screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         const screenTrack = screenStream.getVideoTracks()[0];
         
-        // Swap the camera track with the screen track in the live connection
         const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
         if (sender) sender.replaceTrack(screenTrack);
         
-        // Show screen share in the small local video box
         localVideo.srcObject = screenStream;
         isScreenSharing = true;
         btn.classList.add('active');
 
-        // If the user clicks "Stop sharing" in the browser's native UI popup
         screenTrack.onended = () => stopScreenSharing(btn);
       } catch (err) {
         console.error(err);
-        showToast("Screen share cancelled or not supported.");
+        showToast("Screen share cancelled.");
       }
     } else {
       stopScreenSharing(btn);
@@ -657,10 +717,8 @@
   });
 
   function stopScreenSharing(btnElement) {
-    if (screenStream) {
-      screenStream.getTracks().forEach(t => t.stop());
-    }
-    // Revert to camera
+    if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+    
     const videoTrack = localStream.getVideoTracks()[0];
     const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
     if (sender && videoTrack) sender.replaceTrack(videoTrack);
@@ -670,13 +728,28 @@
     btnElement.classList.remove('active');
   }
 
-  localVideo.addEventListener('click', () => {
-    const remSrc = remoteVideo.srcObject;
-    const locSrc = localVideo.srcObject;
-    remoteVideo.srcObject = locSrc;
-    localVideo.localVideo = remSrc; // trick to hold reference
-    localVideo.srcObject = remSrc;
-    localVideo.muted = true; 
+  // Visual Video Swap (Preserves audio tracks)
+  function handleVideoSwap(e) {
+    const isSwapped = videoContainer.classList.contains('swapped');
+    
+    if (e.target.id === 'localVideo' && !isSwapped) {
+      videoContainer.classList.add('swapped');
+    } else if (e.target.id === 'remoteVideo' && isSwapped) {
+      videoContainer.classList.remove('swapped');
+    }
+  }
+
+  localVideo.addEventListener('click', handleVideoSwap);
+  remoteVideo.addEventListener('click', handleVideoSwap);
+
+  // End Call Logic
+  btnEndCall.addEventListener('click', () => {
+    if(confirm("Are you sure you want to end this call?")) {
+      if (peerConnection) peerConnection.close();
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+      window.location.reload(); // Hard reset state
+    }
   });
 </script>
 </body>
