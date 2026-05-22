@@ -667,6 +667,128 @@
         display: flex;
       }
     }
+
+    /* Neon Stats Panel Overlay Styling */
+    .stats-panel-glow {
+      position: absolute;
+      left: 24px;
+      top: 96px; /* Positioned cleanly below the EN|UZ language selector */
+      z-index: 45;
+      background: rgba(0, 0, 0, 0); /* 100% transparent background as requested */
+      border: 1.5px solid rgba(6, 182, 212, 0.7); /* Cyan neon border */
+      border-radius: 16px;
+      padding: 12px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.82rem;
+      font-weight: bold;
+      color: #06b6d4; /* Vibrant neon cyan text */
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.4), inset 0 0 8px rgba(6, 182, 212, 0.2);
+      transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 150px;
+      pointer-events: auto;
+    }
+
+    /* Pulse animation for a pulsing neon look */
+    @keyframes neonPulse {
+      0%, 100% {
+        box-shadow: 0 0 12px rgba(6, 182, 212, 0.4), inset 0 0 6px rgba(6, 182, 212, 0.2);
+        border-color: rgba(6, 182, 212, 0.6);
+      }
+      50% {
+        box-shadow: 0 0 20px rgba(6, 182, 212, 0.7), inset 0 0 12px rgba(6, 182, 212, 0.4);
+        border-color: rgba(6, 182, 212, 0.9);
+      }
+    }
+
+    .stats-panel-glow:not(.collapsed) {
+      animation: neonPulse 3s ease-in-out infinite;
+    }
+
+    /* Neon text shadow guarantees readability on dark or light video streams */
+    .stats-text-glow {
+      text-shadow: 0 0 4px #000000, 0 0 8px rgba(6, 182, 212, 0.8), 0 0 12px rgba(6, 182, 212, 0.4);
+      margin: 2px 0;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    /* Style for the button that cycles stats mode */
+    .stats-cycle-btn {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(6, 182, 212, 0.5);
+      color: #06b6d4;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      align-self: flex-end;
+      box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+      transition: all 0.2s ease;
+      margin-bottom: 2px;
+    }
+
+    .stats-cycle-btn:hover {
+      background: rgba(6, 182, 212, 0.2);
+      transform: rotate(60deg);
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.6);
+    }
+
+    .stats-cycle-btn svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 2.5;
+    }
+
+    /* Collapsed mode: only the small cycle button is visible */
+    .stats-panel-glow.collapsed {
+      background: transparent !important;
+      border-color: transparent !important;
+      box-shadow: none !important;
+      min-width: 0 !important;
+      padding: 0 !important;
+      animation: none !important;
+    }
+
+    .stats-panel-glow.collapsed .stats-cycle-btn {
+      align-self: center;
+      background: rgba(0, 0, 0, 0.4);
+      border-color: rgba(6, 182, 212, 0.8);
+      width: 36px;
+      height: 36px;
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.6);
+      animation: neonPulse 2s ease-in-out infinite;
+    }
+
+    .stats-panel-glow.collapsed .stats-cycle-btn:hover {
+      background: rgba(6, 182, 212, 0.3);
+      box-shadow: 0 0 22px rgba(6, 182, 212, 0.9);
+    }
+
+    .stats-panel-glow.collapsed .stats-cycle-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Responsive adjustments for mobile screens */
+    @media (max-width: 767px) {
+      .stats-panel-glow {
+        left: 12px;
+        top: 80px;
+        padding: 8px;
+        font-size: 0.75rem;
+        min-width: 120px;
+      }
+      .stats-panel-glow.collapsed {
+        padding: 0 !important;
+      }
+    }
   </style>
   <!-- Firebase App and Database SDKs (Compat version for drop-in CDN simplicity) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -686,6 +808,18 @@
   <div class="video-container" id="videoContainer">
     <video id="remoteVideo" autoplay playsinline></video>
     <video id="localVideo" autoplay muted playsinline></video>
+
+    <!-- Glowing Neon Stats Panel -->
+    <div id="statsContainer" class="stats-panel-glow hidden">
+      <button id="btnCycleStats" class="stats-cycle-btn" data-i18n-title="tooltipCycleStats" title="Cycle Statistics">
+        <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </button>
+      <div id="statsContent"></div>
+    </div>
 
     <!-- Speaker/Call Mode Floating Toggle -->
     <button class="circle-btn" id="btnSpeakerToggle" data-i18n-title="tooltipSpeaker" title="Toggle Audio Output">
@@ -970,7 +1104,14 @@
         alertRoomExpired: "Error: Room has expired, been deleted, or does not exist.",
         tooltipSpeaker: "Toggle Audio Output",
         toastSpeakerSwitched: "Audio output switched",
-        toastSpeakerSystemManaged: "Audio routing is managed by your OS. Swipe to access media controls."
+        toastSpeakerSystemManaged: "Audio routing is managed by your OS. Swipe to access media controls.",
+        tooltipCycleStats: "Cycle Statistics",
+        statDuration: "Time",
+        statPing: "Ping",
+        statFPS: "FPS",
+        statResolution: "Res",
+        statBitrate: "Bitrate",
+        statLoss: "Loss"
       },
       uz: {
         pageTitle: "Pro Connect | Tengdoshlararo Video Aloqa",
@@ -1049,7 +1190,14 @@
         alertRoomExpired: "Xato: Xona muddati tugagan, o'chirilgan yoki mavjud emas.",
         tooltipSpeaker: "Ovoz chiqishini o'zgartirish",
         toastSpeakerSwitched: "Ovoz chiqishi o'zgartirildi",
-        toastSpeakerSystemManaged: "Ovoz tizim tomonidan boshqariladi. Media sozlamalaridan o'zgartiring."
+        toastSpeakerSystemManaged: "Ovoz tizim tomonidan boshqariladi. Media sozlamalaridan o'zgartiring.",
+        tooltipCycleStats: "Statistikani almashtirish",
+        statDuration: "Vaqt",
+        statPing: "Ping",
+        statFPS: "FPS",
+        statResolution: "Ruxsat",
+        statBitrate: "Tezlik",
+        statLoss: "Yo'qotish"
       }
     };
 
@@ -1161,12 +1309,26 @@
     let isScreenSharing = false;
     let screenStream = null;
 
+    // WebRTC Live Connection Statistics and Duration Timer state
+    let statsInterval = null;
+    let connectionStartTime = null;
+    let currentStatsMode = 0; // 0: All, 1: Time, 2: Ping, 3: FPS, 4: Res, 5: Bitrate, 6: Collapsed
+    let lastVideoBytesReceived = 0;
+    let lastVideoBytesTime = 0;
+    let lastAudioBytesReceived = 0;
+    let lastAudioBytesTime = 0;
+    let lastFramesDecoded = 0;
+    let lastFramesTime = 0;
+
     const pcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
     const videoContainer = document.getElementById('videoContainer');
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
     const setupPanel = document.getElementById('setupPanel');
+    const statsContainer = document.getElementById('statsContainer');
+    const btnCycleStats = document.getElementById('btnCycleStats');
+    const statsContent = document.getElementById('statsContent');
 
     const panelInit = document.getElementById('panelInit');
     const panelFirebaseSetup = document.getElementById('panelFirebaseSetup');
@@ -1312,6 +1474,12 @@
           setupPanel.classList.add('hidden');
           btnEndCall.classList.remove('hidden');
           document.body.classList.add('call-active');
+
+          // Initialize duration timer and start stats collection
+          if (!connectionStartTime) {
+            connectionStartTime = Date.now();
+          }
+          startStatsTracker();
         }
 
         // IMPORTANT: Only react to failures AFTER we've been connected at least once.
@@ -1908,6 +2076,197 @@
       isScreenSharing = false;
       btnElement.classList.remove('active');
     }
+
+    // Format duration in HH:MM:SS or MM:SS
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSecs / 3600);
+      const mins = Math.floor((totalSecs % 3600) / 60);
+      const secs = totalSecs % 60;
+      
+      const pad = (n) => n.toString().padStart(2, '0');
+      
+      if (hours > 0) {
+        return `${pad(hours)}:${pad(mins)}:${pad(secs)}`;
+      }
+      return `${pad(mins)}:${pad(secs)}`;
+    }
+
+    // Start stats monitoring loop
+    function startStatsTracker() {
+      if (statsInterval) clearInterval(statsInterval);
+      
+      // Reset previous measurement baselines
+      lastVideoBytesReceived = 0;
+      lastVideoBytesTime = 0;
+      lastAudioBytesReceived = 0;
+      lastAudioBytesTime = 0;
+      lastFramesDecoded = 0;
+      lastFramesTime = 0;
+      
+      // Reveal stats panel
+      statsContainer.classList.remove('hidden');
+      updateStats(); // Initial immediate run
+      statsInterval = setInterval(updateStats, 1000);
+    }
+
+    // Stop stats monitoring
+    function stopStatsTracker() {
+      if (statsInterval) {
+        clearInterval(statsInterval);
+        statsInterval = null;
+      }
+      connectionStartTime = null;
+      statsContainer.classList.add('hidden');
+      statsContent.innerHTML = '';
+    }
+
+    // WebRTC getStats parsing & rendering
+    async function updateStats() {
+      if (!peerConnection || peerConnection.connectionState !== 'connected') {
+        return;
+      }
+
+      let ping = -1;
+      let fps = -1;
+      let bitrateMbps = 0;
+      
+      try {
+        const stats = await peerConnection.getStats();
+        const now = performance.now();
+
+        stats.forEach(report => {
+          // 1. Get Ping (Round Trip Time) from active ICE candidate pair
+          if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.nominated) {
+            if (typeof report.currentRoundTripTime === 'number') {
+              ping = Math.round(report.currentRoundTripTime * 1000); // convert to ms
+            }
+          }
+
+          // 2. Get Video Inbound RTP stats (FPS, bytes)
+          if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
+            // Read FPS if provided directly by browser (Chrome/Edge/Safari support this)
+            if (typeof report.framesPerSecond === 'number') {
+              fps = Math.round(report.framesPerSecond);
+            } else if (typeof report.framesDecoded === 'number') {
+              // Fallback calculation for FPS
+              if (lastFramesDecoded > 0 && lastFramesTime > 0) {
+                const timeDiff = now - lastFramesTime;
+                const framesDiff = report.framesDecoded - lastFramesDecoded;
+                fps = Math.round((framesDiff / timeDiff) * 1000);
+              }
+              lastFramesDecoded = report.framesDecoded;
+              lastFramesTime = now;
+            }
+
+            // Bitrate from bytesReceived
+            if (typeof report.bytesReceived === 'number') {
+              if (lastVideoBytesReceived > 0 && lastVideoBytesTime > 0) {
+                const timeDiff = (now - lastVideoBytesTime) / 1000; // seconds
+                const bytesDiff = report.bytesReceived - lastVideoBytesReceived;
+                const bitsDiff = bytesDiff * 8;
+                bitrateMbps += bitsDiff / timeDiff / 1000000; // Mbps
+              }
+              lastVideoBytesReceived = report.bytesReceived;
+              lastVideoBytesTime = now;
+            }
+          }
+
+          // 3. Get Audio Inbound RTP stats for aggregate Bitrate
+          if (report.type === 'inbound-rtp' && report.mediaType === 'audio') {
+            if (typeof report.bytesReceived === 'number') {
+              if (lastAudioBytesReceived > 0 && lastAudioBytesTime > 0) {
+                const timeDiff = (now - lastAudioBytesTime) / 1000; // seconds
+                const bytesDiff = report.bytesReceived - lastAudioBytesReceived;
+                const bitsDiff = bytesDiff * 8;
+                bitrateMbps += bitsDiff / timeDiff / 1000000; // Mbps
+              }
+              lastAudioBytesReceived = report.bytesReceived;
+              lastAudioBytesTime = now;
+            }
+          }
+        });
+      } catch (err) {
+        console.warn("Failed to retrieve WebRTC statistics:", err);
+      }
+
+      // 4. Get active remote video resolution directly from remoteVideo HTML element
+      let resolutionStr = "N/A";
+      if (remoteVideo && remoteVideo.videoWidth > 0 && remoteVideo.videoHeight > 0) {
+        resolutionStr = `${remoteVideo.videoWidth}x${remoteVideo.videoHeight}`;
+      }
+
+      // Calculate connection duration
+      const durationMs = connectionStartTime ? (Date.now() - connectionStartTime) : 0;
+      const durationStr = formatDuration(durationMs);
+
+      // Render based on currentStatsMode
+      renderStats({
+        duration: durationStr,
+        ping: ping >= 0 ? `${ping} ms` : 'N/A',
+        fps: fps >= 0 ? `${fps}` : 'N/A',
+        resolution: resolutionStr,
+        bitrate: bitrateMbps > 0 ? `${bitrateMbps.toFixed(2)} Mbps` : 'N/A'
+      });
+    }
+
+    // Render Stats HTML markup based on active view mode
+    function renderStats(data) {
+      if (currentStatsMode === 6) {
+        // Collapsed mode: clear text content
+        statsContent.innerHTML = '';
+        return;
+      }
+
+      const t = translations[currentLang];
+      let html = '';
+
+      if (currentStatsMode === 0) {
+        // Mode 0: All Stats
+        html = `
+          <div class="stats-text-glow">🕒 ${t.statDuration}: ${data.duration}</div>
+          <div class="stats-text-glow">⚡ ${t.statPing}: ${data.ping}</div>
+          <div class="stats-text-glow">📺 ${t.statFPS}: ${data.fps}</div>
+          <div class="stats-text-glow">📏 ${t.statResolution}: ${data.resolution}</div>
+          <div class="stats-text-glow">🚀 ${t.statBitrate}: ${data.bitrate}</div>
+        `;
+      } else if (currentStatsMode === 1) {
+        // Mode 1: Duration
+        html = `<div class="stats-text-glow">🕒 ${t.statDuration}: ${data.duration}</div>`;
+      } else if (currentStatsMode === 2) {
+        // Mode 2: Ping
+        html = `<div class="stats-text-glow">⚡ ${t.statPing}: ${data.ping}</div>`;
+      } else if (currentStatsMode === 3) {
+        // Mode 3: FPS
+        html = `<div class="stats-text-glow">📺 ${t.statFPS}: ${data.fps}</div>`;
+      } else if (currentStatsMode === 4) {
+        // Mode 4: Resolution
+        html = `<div class="stats-text-glow">📏 ${t.statResolution}: ${data.resolution}</div>`;
+      } else if (currentStatsMode === 5) {
+        // Mode 5: Bitrate
+        html = `<div class="stats-text-glow">🚀 ${t.statBitrate}: ${data.bitrate}</div>`;
+      }
+
+      statsContent.innerHTML = html;
+    }
+
+    // Handler to cycle stats modes
+    function cycleStatsMode() {
+      currentStatsMode = (currentStatsMode + 1) % 7; // Cycle through 7 states (0 to 6)
+      
+      // Update collapsed CSS class
+      if (currentStatsMode === 6) {
+        statsContainer.classList.add('collapsed');
+      } else {
+        statsContainer.classList.remove('collapsed');
+      }
+      
+      // Force an immediate update
+      updateStats();
+    }
+
+    // Attach event listener to Stats cycle button
+    btnCycleStats.addEventListener('click', cycleStatsMode);
 
     function handleVideoSwap(e) {
       const isSwapped = videoContainer.classList.contains('swapped');
