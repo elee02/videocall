@@ -501,6 +501,7 @@
       text-decoration: none;
       font-weight: 500;
       transition: color 0.2s;
+      cursor: pointer;
     }
 
     .lang-select a.active {
@@ -846,11 +847,8 @@
       }
     };
 
-    let currentLang = localStorage.getItem('preferred-lang');
-    if (!currentLang) {
-      const browserLang = navigator.language || navigator.userLanguage;
-      currentLang = (browserLang && browserLang.startsWith('uz')) ? 'uz' : 'en';
-    }
+    // Use early detected language or retrieve from localStorage
+    currentLang = localStorage.getItem('preferred-lang') || currentLang;
 
     function setLanguage(lang) {
       currentLang = lang;
