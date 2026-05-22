@@ -614,8 +614,8 @@
 
     #btnSpeakerToggle {
       position: absolute;
-      top: 196px;
-      right: 60px;
+      top: 192px;
+      right: 24px;
       z-index: 35;
       display: none;
       background: var(--panel-glass);
@@ -1430,10 +1430,13 @@
     });
 
     // --- AUTOMATED SIGNALING PATH (FIREBASE) ---
+    let offerWrittenToFirebase = false;
+
     async function startFirebaseSession() {
       panelOfferCreatedAuto.classList.remove('hidden');
       statusOfferAuto.className = "status-tracker";
       statusOfferAuto.innerText = translations[currentLang].statusRequestHardware;
+      offerWrittenToFirebase = false;
 
       try {
         await initMedia();
@@ -1449,6 +1452,13 @@
 
         // Clean up expired rooms older than 10 mins
         cleanExpiredRooms();
+
+        // Reserve the room in Firebase immediately so joiners don't get "room not found"
+        if (db) {
+          await db.ref('rooms/' + currentRoomId).set({
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+          });
+        }
 
         peerConnection.onicegatheringstatechange = () => {
           if (peerConnection.iceGatheringState === 'complete') {
@@ -1470,16 +1480,16 @@
     }
 
     function writeOfferToFirebase(roomId, localDescription) {
-      if (!db) return;
+      if (!db || offerWrittenToFirebase) return;
+      offerWrittenToFirebase = true;
       statusOfferAuto.innerText = translations[currentLang].statusOfferGeneratedAuto;
 
       const roomRef = db.ref('rooms/' + roomId);
-      roomRef.set({
+      roomRef.update({
         offer: {
           type: localDescription.type,
           sdp: localDescription.sdp
-        },
-        createdAt: firebase.database.ServerValue.TIMESTAMP
+        }
       }).then(() => {
         // Listen for remote answer
         roomRef.on('value', async (snapshot) => {
@@ -1520,11 +1530,35 @@
         const snapshot = await roomRef.once('value');
         const data = snapshot.val();
 
-        if (!data || !data.offer) {
+        // Room doesn't exist at all
+        if (!data) {
           statusJoinAuto.className = "status-tracker err";
           statusJoinAuto.innerText = translations[currentLang].alertRoomExpired;
           alert(translations[currentLang].alertRoomExpired);
           return;
+        }
+
+        // Room exists but offer isn't ready yet (creator's ICE gathering still in progress)
+        // Wait for the offer to appear (up to 30 seconds)
+        let offerData = data.offer;
+        if (!offerData) {
+          statusJoinAuto.innerText = translations[currentLang].statusWaitingForPartner;
+          offerData = await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              roomRef.off('value', handler);
+              reject(new Error(translations[currentLang].alertRoomExpired));
+            }, 30000);
+
+            const handler = (snap) => {
+              const d = snap.val();
+              if (d && d.offer) {
+                clearTimeout(timeout);
+                roomRef.off('value', handler);
+                resolve(d.offer);
+              }
+            };
+            roomRef.on('value', handler);
+          });
         }
 
         statusJoinAuto.innerText = translations[currentLang].statusCameraChannels;
@@ -1533,7 +1567,7 @@
         statusJoinAuto.innerText = translations[currentLang].statusSpawnNode;
         peerConnection = buildPeerConnection(statusJoinAuto);
 
-        const sdp = new RTCSessionDescription(data.offer);
+        const sdp = new RTCSessionDescription(offerData);
         await peerConnection.setRemoteDescription(sdp);
 
         statusJoinAuto.innerText = translations[currentLang].statusReciprocalSDP;
