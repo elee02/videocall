@@ -1030,18 +1030,34 @@
         remoteVideo.srcObject = e.streams[0];
       };
 
+      let disconnectTimer = null;
+
       pc.onconnectionstatechange = () => {
         statusContainer.className = "status-tracker";
         statusContainer.innerText = translations[currentLang].statusSystemState + pc.connectionState;
 
         if (pc.connectionState === 'connected') {
+          // Clear any pending disconnect timer if we recover
+          if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
           setupPanel.classList.add('hidden');
           btnEndCall.classList.remove('hidden');
         }
-        // Fallback in case they lose internet entirely without clicking hang up
-        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+
+        // 'failed' is a terminal state — reload immediately
+        if (pc.connectionState === 'failed') {
           alert(translations[currentLang].alertConnectionLost);
           window.location.reload();
+        }
+
+        // 'disconnected' is transient — WebRTC may self-recover (e.g. after a brief network blip).
+        // Only reload if it hasn't recovered after 5 seconds.
+        if (pc.connectionState === 'disconnected') {
+          disconnectTimer = setTimeout(() => {
+            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+              alert(translations[currentLang].alertConnectionLost);
+              window.location.reload();
+            }
+          }, 5000);
         }
       };
 
@@ -1130,6 +1146,9 @@
         statusJoin.innerText = translations[currentLang].statusReciprocalSDP;
         const answer = await peerConnection.createAnswer();
 
+        // Register the handler BEFORE setLocalDescription to avoid a race
+        // condition where ICE gathering completes synchronously on fast devices
+        // and fires the event before our handler is attached.
         peerConnection.onicegatheringstatechange = () => {
           if (peerConnection.iceGatheringState === 'complete') {
             txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
@@ -1143,6 +1162,8 @@
         boxAnswerOutput.classList.remove('hidden');
         txtLocalAnswer.value = translations[currentLang].statusAssembleResponse;
 
+        // Synchronous fallback: if ICE was already complete before the async
+        // setLocalDescription returned, populate the answer key immediately.
         if (peerConnection.iceGatheringState === 'complete') {
           txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
           statusJoin.innerText = translations[currentLang].statusSuccessResponse;
