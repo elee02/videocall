@@ -610,6 +610,51 @@
         height: 120px;
         margin-bottom: 18px;
       }
+    }
+
+    #btnSpeakerToggle {
+      position: absolute;
+      top: 196px;
+      right: 60px;
+      z-index: 35;
+      display: none;
+      background: var(--panel-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    #btnSpeakerToggle svg {
+      width: 22px;
+      height: 22px;
+      stroke-width: 2;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    #btnSpeakerToggle:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    #btnSpeakerToggle.off {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--accent);
+    }
+
+    #btnSpeakerToggle svg.hidden {
+      display: none !important;
+    }
+
+    /* Show only on small screens during active call */
+    @media (max-width: 767px) {
+      body.call-active #btnSpeakerToggle {
+        display: flex;
+      }
+    }
   </style>
   <!-- Firebase App and Database SDKs (Compat version for drop-in CDN simplicity) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -629,6 +674,17 @@
   <div class="video-container" id="videoContainer">
     <video id="remoteVideo" autoplay playsinline></video>
     <video id="localVideo" autoplay muted playsinline></video>
+
+    <!-- Speaker/Call Mode Floating Toggle -->
+    <button class="circle-btn" id="btnSpeakerToggle" data-i18n-title="tooltipSpeaker" title="Toggle Audio Output">
+      <svg class="icon-speaker-on" viewBox="0 0 24 24">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </svg>
+      <svg class="icon-speaker-off hidden" viewBox="0 0 24 24">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+      </svg>
+    </button>
 
     <!-- Chat Overlay -->
     <div id="chatPanel" class="hidden">
@@ -899,7 +955,10 @@
         statusConfigSaved: "Firebase configuration saved successfully!",
         statusInvalidConfig: "Error: Invalid Firebase configuration JSON.",
         toastRoomCodeCopied: "Room code copied to clipboard!",
-        alertRoomExpired: "Error: Room has expired, been deleted, or does not exist."
+        alertRoomExpired: "Error: Room has expired, been deleted, or does not exist.",
+        tooltipSpeaker: "Toggle Audio Output",
+        toastSpeakerSwitched: "Audio output switched",
+        toastSpeakerSystemManaged: "Audio routing is managed by your OS. Swipe to access media controls."
       },
       uz: {
         pageTitle: "Pro Connect | Tengdoshlararo Video Aloqa",
@@ -975,7 +1034,10 @@
         statusConfigSaved: "Firebase sozlamalari muvaffaqiyatli saqlandi!",
         statusInvalidConfig: "Xato: Noto'g'ri Firebase sozlamalari JSON formatida.",
         toastRoomCodeCopied: "Xona kodi nusxalandi!",
-        alertRoomExpired: "Xato: Xona muddati tugagan, o'chirilgan yoki mavjud emas."
+        alertRoomExpired: "Xato: Xona muddati tugagan, o'chirilgan yoki mavjud emas.",
+        tooltipSpeaker: "Ovoz chiqishini o'zgartirish",
+        toastSpeakerSwitched: "Ovoz chiqishi o'zgartirildi",
+        toastSpeakerSystemManaged: "Ovoz tizim tomonidan boshqariladi. Media sozlamalaridan o'zgartiring."
       }
     };
 
@@ -1237,6 +1299,7 @@
           if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
           setupPanel.classList.add('hidden');
           btnEndCall.classList.remove('hidden');
+          document.body.classList.add('call-active');
         }
 
         // IMPORTANT: Only react to failures AFTER we've been connected at least once.
@@ -1653,6 +1716,76 @@
         e.currentTarget.classList.toggle('off', !track.enabled);
       }
     });
+
+    // Speaker/Earpiece Audio Routing
+    let currentAudioOutput = 'speaker'; // 'speaker' or 'earpiece'
+
+    async function toggleAudioOutput() {
+      const btn = document.getElementById('btnSpeakerToggle');
+      const iconOn = btn.querySelector('.icon-speaker-on');
+      const iconOff = btn.querySelector('.icon-speaker-off');
+
+      // 1. Try modern selectAudioOutput API if available
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.selectAudioOutput === 'function') {
+        try {
+          const device = await navigator.mediaDevices.selectAudioOutput();
+          if (remoteVideo && typeof remoteVideo.setSinkId === 'function') {
+            await remoteVideo.setSinkId(device.deviceId);
+            
+            // Check if user selected earpiece vs speaker based on label
+            const label = device.label.toLowerCase();
+            const isEarpiece = label.includes('earpiece') || label.includes('phone') || label.includes('receiver');
+            currentAudioOutput = isEarpiece ? 'earpiece' : 'speaker';
+            
+            iconOn.classList.toggle('hidden', currentAudioOutput === 'earpiece');
+            iconOff.classList.toggle('hidden', currentAudioOutput === 'speaker');
+            btn.classList.toggle('off', currentAudioOutput === 'earpiece');
+            
+            showToast(translations[currentLang].toastSpeakerSwitched + ": " + device.label);
+          }
+        } catch (err) {
+          console.warn("selectAudioOutput failed or cancelled:", err);
+        }
+        return;
+      }
+
+      // 2. Fallback: Try enumerateDevices & setSinkId manually
+      if (remoteVideo && typeof remoteVideo.setSinkId === 'function' && navigator.mediaDevices && typeof navigator.mediaDevices.enumerateDevices === 'function') {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+          
+          if (audioOutputs.length > 1) {
+            // Find a non-default speaker device or cycle them
+            const targetIndex = currentAudioOutput === 'speaker' ? 1 : 0;
+            const targetDevice = audioOutputs[targetIndex] || audioOutputs[0];
+            
+            await remoteVideo.setSinkId(targetDevice.deviceId);
+            currentAudioOutput = currentAudioOutput === 'speaker' ? 'earpiece' : 'speaker';
+            
+            iconOn.classList.toggle('hidden', currentAudioOutput === 'earpiece');
+            iconOff.classList.toggle('hidden', currentAudioOutput === 'speaker');
+            btn.classList.toggle('off', currentAudioOutput === 'earpiece');
+            
+            showToast(translations[currentLang].toastSpeakerSwitched + ": " + (targetDevice.label || "Toggle"));
+            return;
+          }
+        } catch (err) {
+          console.warn("enumerateDevices / setSinkId failed:", err);
+        }
+      }
+
+      // 3. Fallback for iOS Safari & others where setSinkId / selectAudioOutput are blocked
+      // We simulate state transition so user gets visual feedback, and explain system handles routing
+      currentAudioOutput = currentAudioOutput === 'speaker' ? 'earpiece' : 'speaker';
+      iconOn.classList.toggle('hidden', currentAudioOutput === 'earpiece');
+      iconOff.classList.toggle('hidden', currentAudioOutput === 'speaker');
+      btn.classList.toggle('off', currentAudioOutput === 'earpiece');
+      
+      showToast(translations[currentLang].toastSpeakerSystemManaged);
+    }
+
+    document.getElementById('btnSpeakerToggle').addEventListener('click', toggleAudioOutput);
 
     document.getElementById('btnFlip').addEventListener('click', async () => {
       if (isScreenSharing) return;
