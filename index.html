@@ -1031,17 +1031,25 @@
       };
 
       let disconnectTimer = null;
+      let wasEverConnected = false;
 
       pc.onconnectionstatechange = () => {
         statusContainer.className = "status-tracker";
         statusContainer.innerText = translations[currentLang].statusSystemState + pc.connectionState;
 
         if (pc.connectionState === 'connected') {
+          wasEverConnected = true;
           // Clear any pending disconnect timer if we recover
           if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
           setupPanel.classList.add('hidden');
           btnEndCall.classList.remove('hidden');
         }
+
+        // IMPORTANT: Only react to failures AFTER we've been connected at least once.
+        // During the manual copy-paste signaling phase, the receiver's ICE checks
+        // will fail because the offerer hasn't applied the answer yet — this is
+        // completely normal and expected. We must not reload the page for it.
+        if (!wasEverConnected) return;
 
         // 'failed' is a terminal state — reload immediately
         if (pc.connectionState === 'failed') {
