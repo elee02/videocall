@@ -1267,6 +1267,12 @@
     let useManualMode = false;
     let db = null;
 
+    // --- Firebase WebSocket lifecycle management ---
+    // Track all active Firebase listeners so we can deterministically clean them up
+    let activeFirebaseListeners = [];  // [{ref, event, callback}, ...]
+    let firebaseGoOfflineTimer = null; // Deferred goOffline timer after signaling
+    let iceGatheringTimeout = null;    // Safety timeout for ICE gathering
+
     function getFirebaseConfig() {
       // Check localStorage first for dynamic configuration
       const customConfig = localStorage.getItem('custom-firebase-config');
@@ -1294,11 +1300,69 @@
           firebase.initializeApp(config);
         }
         db = firebase.database();
+        // Ensure we start online (in case a previous session called goOffline)
+        db.goOnline();
         return true;
       } catch (e) {
         console.error("Firebase init failed", e);
         return false;
       }
+    }
+
+    /**
+     * Register a Firebase listener so it can be tracked and cleaned up later.
+     * Use this instead of calling ref.on() directly.
+     */
+    function addFirebaseListener(ref, event, callback) {
+      ref.on(event, callback);
+      activeFirebaseListeners.push({ ref, event, callback });
+    }
+
+    /**
+     * Remove all tracked Firebase listeners and disconnect the WebSocket.
+     * @param {string|null} abandonedRoomId - If provided, delete this room (creator abandoned)
+     */
+    function disconnectFirebase(abandonedRoomId) {
+      // 1. Detach every tracked listener
+      activeFirebaseListeners.forEach(({ ref, event, callback }) => {
+        try { ref.off(event, callback); } catch (_) { /* already detached */ }
+      });
+      activeFirebaseListeners = [];
+
+      // 2. Clean up abandoned room if the creator never finished signaling
+      if (abandonedRoomId && db) {
+        try { db.ref('rooms/' + abandonedRoomId).remove(); } catch (_) { }
+      }
+
+      // 3. Clear any pending goOffline timers
+      if (firebaseGoOfflineTimer) {
+        clearTimeout(firebaseGoOfflineTimer);
+        firebaseGoOfflineTimer = null;
+      }
+
+      // 4. Clear ICE gathering safety timeout
+      if (iceGatheringTimeout) {
+        clearTimeout(iceGatheringTimeout);
+        iceGatheringTimeout = null;
+      }
+
+      // 5. Actually close the WebSocket
+      if (db) {
+        try { db.goOffline(); } catch (_) { }
+        console.log('[Firebase] goOffline – WebSocket closed');
+      }
+    }
+
+    /**
+     * Schedule Firebase goOffline after a short grace period.
+     * Called when signaling succeeds and WebRTC is connected.
+     * The small delay lets any final writes (answer write, room delete) flush.
+     */
+    function scheduleFirebaseDisconnect() {
+      if (firebaseGoOfflineTimer) clearTimeout(firebaseGoOfflineTimer);
+      firebaseGoOfflineTimer = setTimeout(() => {
+        disconnectFirebase(null);
+      }, 2000); // 2-second grace for in-flight writes
     }
 
     // Try to initialize Firebase immediately
@@ -1364,6 +1428,20 @@
       if (peerConnection && peerConnection.connectionState === 'connected') {
         e.preventDefault();
         e.returnValue = '';
+      }
+
+      // Best-effort cleanup: close Firebase WebSocket so we don't leave
+      // an idle connection from an unfinished handshake or abandoned session
+      disconnectFirebase(currentRoomId && !peerConnection ? currentRoomId : null);
+    });
+
+    // Also handle tab-hide on mobile (iOS fires this instead of beforeunload)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        // If we're mid-signaling (no established call), clean up Firebase immediately
+        if (!peerConnection || peerConnection.connectionState !== 'connected') {
+          disconnectFirebase(currentRoomId && !peerConnection ? currentRoomId : null);
+        }
       }
     });
 
@@ -1482,6 +1560,10 @@
             connectionStartTime = Date.now();
           }
           startStatsTracker();
+
+          // WebRTC is connected — Firebase signaling is done.
+          // Disconnect the Firebase WebSocket to free the idle connection.
+          scheduleFirebaseDisconnect();
         }
 
         // IMPORTANT: Only react to failures AFTER we've been connected at least once.
@@ -1644,9 +1726,19 @@
 
         peerConnection.onicegatheringstatechange = () => {
           if (peerConnection.iceGatheringState === 'complete') {
+            if (iceGatheringTimeout) { clearTimeout(iceGatheringTimeout); iceGatheringTimeout = null; }
             writeOfferToFirebase(currentRoomId, peerConnection.localDescription);
           }
         };
+
+        // Safety timeout: if ICE gathering doesn't complete in 30s,
+        // force-write whatever candidates we have so we don't idle forever
+        iceGatheringTimeout = setTimeout(() => {
+          if (peerConnection && !offerWrittenToFirebase && peerConnection.localDescription) {
+            console.warn('[ICE] Gathering timed out after 30s – writing partial offer');
+            writeOfferToFirebase(currentRoomId, peerConnection.localDescription);
+          }
+        }, 30000);
 
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
@@ -1676,8 +1768,8 @@
           sdp: localDescription.sdp
         }
       }).then(() => {
-        // Listen for remote answer
-        roomRef.on('value', async (snapshot) => {
+        // Listen for remote answer using tracked listener
+        const answerHandler = async (snapshot) => {
           const data = snapshot.val();
           if (data && data.answer && !peerConnection.currentRemoteDescription) {
             statusOfferAuto.innerText = translations[currentLang].statusMergeProfiles;
@@ -1686,13 +1778,18 @@
               await peerConnection.setRemoteDescription(rtcSessionDescription);
               statusOfferAuto.innerText = translations[currentLang].statusEstablishTunnel;
 
-              roomRef.off();
+              // Detach this specific listener and clean up room
+              roomRef.off('value', answerHandler);
+              activeFirebaseListeners = activeFirebaseListeners.filter(
+                l => l.callback !== answerHandler
+              );
               roomRef.remove(); // Clean up DB path instantly for privacy
             } catch (e) {
               console.error("Error setting remote description", e);
             }
           }
-        });
+        };
+        addFirebaseListener(roomRef, 'value', answerHandler);
       }).catch(err => {
         statusOfferAuto.className = "status-tracker err";
         statusOfferAuto.innerText = translations[currentLang].statusError + err.message;
@@ -1731,6 +1828,11 @@
           offerData = await new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
               roomRef.off('value', handler);
+              activeFirebaseListeners = activeFirebaseListeners.filter(
+                l => l.callback !== handler
+              );
+              // Disconnect Firebase since we're giving up
+              disconnectFirebase(null);
               reject(new Error(translations[currentLang].alertRoomExpired));
             }, 30000);
 
@@ -1739,10 +1841,13 @@
               if (d && d.offer) {
                 clearTimeout(timeout);
                 roomRef.off('value', handler);
+                activeFirebaseListeners = activeFirebaseListeners.filter(
+                  l => l.callback !== handler
+                );
                 resolve(d.offer);
               }
             };
-            roomRef.on('value', handler);
+            addFirebaseListener(roomRef, 'value', handler);
           });
         }
 
@@ -1760,9 +1865,18 @@
 
         peerConnection.onicegatheringstatechange = () => {
           if (peerConnection.iceGatheringState === 'complete') {
+            if (iceGatheringTimeout) { clearTimeout(iceGatheringTimeout); iceGatheringTimeout = null; }
             writeAnswerToFirebase(roomRef, peerConnection.localDescription);
           }
         };
+
+        // Safety timeout for joiner ICE gathering as well
+        iceGatheringTimeout = setTimeout(() => {
+          if (peerConnection && peerConnection.localDescription) {
+            console.warn('[ICE] Joiner gathering timed out after 30s – writing partial answer');
+            writeAnswerToFirebase(roomRef, peerConnection.localDescription);
+          }
+        }, 30000);
 
         await peerConnection.setLocalDescription(answer);
         statusJoinAuto.innerText = translations[currentLang].statusCollectReturn;
@@ -2315,6 +2429,9 @@
         if (dataChannel && dataChannel.readyState === 'open') {
           dataChannel.send('__CMD_HANGUP__');
         }
+
+        // Immediately disconnect Firebase WebSocket (no reason to keep it alive)
+        disconnectFirebase(null);
 
         // Wait 100ms for the signal to shoot across the network before destroying everything
         setTimeout(() => {
