@@ -455,7 +455,8 @@
       position: absolute;
       top: 32px;
       left: 50%;
-      transform: translateX(-50%) translateY(-100px);
+      transform: translateX(-50%) translateY(calc(-100% - 50px));
+      opacity: 0;
       background: var(--accent);
       color: #fff;
       padding: 12px 28px;
@@ -463,13 +464,16 @@
       font-size: 0.95rem;
       font-weight: 500;
       z-index: 100;
-      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
       box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
       pointer-events: none;
+      max-width: 90%;
+      text-align: center;
     }
 
     #toast.show {
       transform: translateX(-50%) translateY(0);
+      opacity: 1;
     }
 
     hr {
@@ -517,6 +521,55 @@
       color: var(--panel-border);
     }
 
+    /* Firebase Specific Styles (mobile-first) */
+    .room-code-display {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: #3b82f6;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 16px;
+      border-radius: 16px;
+      margin: 18px 0;
+      border: 1px solid var(--panel-border);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      font-family: monospace;
+    }
+
+    .room-code-display:hover {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+    }
+
+    .room-input {
+      font-size: 1.5rem;
+      text-align: center;
+      letter-spacing: 0.15em;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--panel-border);
+      background: rgba(0, 0, 0, 0.4);
+      color: #fff;
+      margin-bottom: 18px;
+      width: 100%;
+      transition: all 0.3s ease;
+      font-family: monospace;
+    }
+
+    .room-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.25);
+    }
+
     @media (min-width: 768px) {
       #localVideo {
         width: 180px;
@@ -557,53 +610,12 @@
         height: 50vh;
       }
 
-      /* Firebase Specific Styles */
       .room-code-display {
         font-size: 2.25rem;
-        font-weight: 700;
-        letter-spacing: 0.2em;
-        color: #3b82f6;
-        background: rgba(0, 0, 0, 0.4);
-        padding: 16px;
-        border-radius: 16px;
-        margin: 18px 0;
-        border: 1px solid var(--panel-border);
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 12px;
-        font-family: monospace;
-      }
-
-      .room-code-display:hover {
-        background: rgba(59, 130, 246, 0.15);
-        border-color: var(--accent);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
       }
 
       .room-input {
         font-size: 1.75rem;
-        text-align: center;
-        letter-spacing: 0.15em;
-        padding: 12px;
-        border-radius: 12px;
-        border: 1px solid var(--panel-border);
-        background: rgba(0, 0, 0, 0.4);
-        color: #fff;
-        margin-bottom: 18px;
-        width: 100%;
-        transition: all 0.3s ease;
-        font-family: monospace;
-      }
-
-      .room-input:focus {
-        outline: none;
-        border-color: var(--accent);
-        box-shadow: 0 0 16px rgba(59, 130, 246, 0.25);
       }
 
       #txtFirebaseConfig {
@@ -1446,9 +1458,9 @@
         dataChannel = peerConnection.createDataChannel('chat');
         setupDataChannel(dataChannel);
 
-        // Generate a random 6-digit room code
+        // Generate a random 6-digit room code but don't reveal it yet
         currentRoomId = Math.floor(100000 + Math.random() * 900000).toString();
-        lblRoomCode.innerText = currentRoomId;
+        lblRoomCode.innerText = '------';
 
         // Clean up expired rooms older than 10 mins
         cleanExpiredRooms();
@@ -1483,6 +1495,9 @@
       if (!db || offerWrittenToFirebase) return;
       offerWrittenToFirebase = true;
       statusOfferAuto.innerText = translations[currentLang].statusOfferGeneratedAuto;
+
+      // Now reveal the room code to the user
+      lblRoomCode.innerText = roomId;
 
       const roomRef = db.ref('rooms/' + roomId);
       roomRef.update({
