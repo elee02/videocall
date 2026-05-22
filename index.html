@@ -675,14 +675,14 @@
       top: 96px; /* Positioned cleanly below the EN|UZ language selector */
       z-index: 45;
       background: rgba(0, 0, 0, 0); /* 100% transparent background as requested */
-      border: 1.5px solid rgba(6, 182, 212, 0.7); /* Cyan neon border */
+      border: 1.5px solid rgba(37, 99, 235, 0.7); /* Rich royal blue neon border */
       border-radius: 16px;
       padding: 12px;
       font-family: 'Courier New', Courier, monospace;
       font-size: 0.82rem;
       font-weight: bold;
-      color: #06b6d4; /* Vibrant neon cyan text */
-      box-shadow: 0 0 15px rgba(6, 182, 212, 0.4), inset 0 0 8px rgba(6, 182, 212, 0.2);
+      color: #2563eb; /* Vibrant neon royal blue text */
+      box-shadow: 0 0 15px rgba(37, 99, 235, 0.4), inset 0 0 8px rgba(37, 99, 235, 0.2);
       transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
       display: flex;
       flex-direction: column;
@@ -694,12 +694,12 @@
     /* Pulse animation for a pulsing neon look */
     @keyframes neonPulse {
       0%, 100% {
-        box-shadow: 0 0 12px rgba(6, 182, 212, 0.4), inset 0 0 6px rgba(6, 182, 212, 0.2);
-        border-color: rgba(6, 182, 212, 0.6);
+        box-shadow: 0 0 12px rgba(37, 99, 235, 0.4), inset 0 0 6px rgba(37, 99, 235, 0.2);
+        border-color: rgba(37, 99, 235, 0.6);
       }
       50% {
-        box-shadow: 0 0 20px rgba(6, 182, 212, 0.7), inset 0 0 12px rgba(6, 182, 212, 0.4);
-        border-color: rgba(6, 182, 212, 0.9);
+        box-shadow: 0 0 20px rgba(37, 99, 235, 0.7), inset 0 0 12px rgba(37, 99, 235, 0.4);
+        border-color: rgba(37, 99, 235, 0.9);
       }
     }
 
@@ -709,7 +709,7 @@
 
     /* Neon text shadow guarantees readability on dark or light video streams */
     .stats-text-glow {
-      text-shadow: 0 0 4px #000000, 0 0 8px rgba(6, 182, 212, 0.8), 0 0 12px rgba(6, 182, 212, 0.4);
+      text-shadow: 0 0 4px #000000, 0 0 8px rgba(37, 99, 235, 0.8), 0 0 12px rgba(37, 99, 235, 0.4);
       margin: 2px 0;
       letter-spacing: 0.05em;
       white-space: nowrap;
@@ -718,8 +718,8 @@
     /* Style for the button that cycles stats mode */
     .stats-cycle-btn {
       background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(6, 182, 212, 0.5);
-      color: #06b6d4;
+      border: 1px solid rgba(37, 99, 235, 0.5);
+      color: #2563eb;
       border-radius: 50%;
       width: 28px;
       height: 28px;
@@ -728,15 +728,15 @@
       justify-content: center;
       cursor: pointer;
       align-self: flex-end;
-      box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+      box-shadow: 0 0 8px rgba(37, 99, 235, 0.3);
       transition: all 0.2s ease;
       margin-bottom: 2px;
     }
 
     .stats-cycle-btn:hover {
-      background: rgba(6, 182, 212, 0.2);
+      background: rgba(37, 99, 235, 0.2);
       transform: rotate(60deg);
-      box-shadow: 0 0 12px rgba(6, 182, 212, 0.6);
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.6);
     }
 
     .stats-cycle-btn svg {
@@ -759,16 +759,16 @@
     .stats-panel-glow.collapsed .stats-cycle-btn {
       align-self: center;
       background: rgba(0, 0, 0, 0.4);
-      border-color: rgba(6, 182, 212, 0.8);
+      border-color: rgba(37, 99, 235, 0.8);
       width: 36px;
       height: 36px;
-      box-shadow: 0 0 15px rgba(6, 182, 212, 0.6);
+      box-shadow: 0 0 15px rgba(37, 99, 235, 0.6);
       animation: neonPulse 2s ease-in-out infinite;
     }
 
     .stats-panel-glow.collapsed .stats-cycle-btn:hover {
-      background: rgba(6, 182, 212, 0.3);
-      box-shadow: 0 0 22px rgba(6, 182, 212, 0.9);
+      background: rgba(37, 99, 235, 0.3);
+      box-shadow: 0 0 22px rgba(37, 99, 235, 0.9);
     }
 
     .stats-panel-glow.collapsed .stats-cycle-btn svg {
@@ -1319,6 +1319,8 @@
     let lastAudioBytesTime = 0;
     let lastFramesDecoded = 0;
     let lastFramesTime = 0;
+    let lastVideoFrames = 0;
+    let lastPlaybackFramesTime = 0;
 
     const pcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
@@ -2103,6 +2105,8 @@
       lastAudioBytesTime = 0;
       lastFramesDecoded = 0;
       lastFramesTime = 0;
+      lastVideoFrames = 0;
+      lastPlaybackFramesTime = 0;
       
       // Reveal stats panel
       statsContainer.classList.remove('hidden');
@@ -2137,26 +2141,34 @@
 
         stats.forEach(report => {
           // 1. Get Ping (Round Trip Time) from active ICE candidate pair
-          if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.nominated) {
-            if (typeof report.currentRoundTripTime === 'number') {
-              ping = Math.round(report.currentRoundTripTime * 1000); // convert to ms
+          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+            if (report.active === true || report.current === true) {
+              if (typeof report.currentRoundTripTime === 'number') {
+                ping = Math.round(report.currentRoundTripTime * 1000); // convert to ms
+              }
+            } else if (ping === -1 && report.nominated === true) {
+              // Fallback for nominated candidate pair if active is not yet matched or set
+              if (typeof report.currentRoundTripTime === 'number') {
+                ping = Math.round(report.currentRoundTripTime * 1000);
+              }
             }
           }
 
-          // 2. Get Video Inbound RTP stats (FPS, bytes)
+          // 2. Get Video Inbound RTP stats (fallback FPS, bytes)
           if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
-            // Read FPS if provided directly by browser (Chrome/Edge/Safari support this)
-            if (typeof report.framesPerSecond === 'number') {
-              fps = Math.round(report.framesPerSecond);
-            } else if (typeof report.framesDecoded === 'number') {
-              // Fallback calculation for FPS
-              if (lastFramesDecoded > 0 && lastFramesTime > 0) {
-                const timeDiff = now - lastFramesTime;
-                const framesDiff = report.framesDecoded - lastFramesDecoded;
-                fps = Math.round((framesDiff / timeDiff) * 1000);
+            // Secondary fallback for FPS
+            if (fps === -1) {
+              if (typeof report.framesPerSecond === 'number') {
+                fps = Math.round(report.framesPerSecond);
+              } else if (typeof report.framesDecoded === 'number') {
+                if (lastFramesDecoded > 0 && lastFramesTime > 0) {
+                  const timeDiff = now - lastFramesTime;
+                  const framesDiff = report.framesDecoded - lastFramesDecoded;
+                  fps = Math.round((framesDiff / timeDiff) * 1000);
+                }
+                lastFramesDecoded = report.framesDecoded;
+                lastFramesTime = now;
               }
-              lastFramesDecoded = report.framesDecoded;
-              lastFramesTime = now;
             }
 
             // Bitrate from bytesReceived
@@ -2186,6 +2198,22 @@
             }
           }
         });
+
+        // 4. Use primary high-precision getVideoPlaybackQuality for FPS if available
+        if (remoteVideo && typeof remoteVideo.getVideoPlaybackQuality === 'function') {
+          const quality = remoteVideo.getVideoPlaybackQuality();
+          if (quality && typeof quality.totalVideoFrames === 'number') {
+            if (lastVideoFrames > 0 && lastPlaybackFramesTime > 0) {
+              const timeDiff = now - lastPlaybackFramesTime;
+              const framesDiff = quality.totalVideoFrames - lastVideoFrames;
+              if (timeDiff > 0 && framesDiff >= 0) {
+                fps = Math.round((framesDiff / timeDiff) * 1000);
+              }
+            }
+            lastVideoFrames = quality.totalVideoFrames;
+            lastPlaybackFramesTime = now;
+          }
+        }
       } catch (err) {
         console.warn("Failed to retrieve WebRTC statistics:", err);
       }
