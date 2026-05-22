@@ -25,7 +25,6 @@
     body {
       font-family: 'Inter', -apple-system, sans-serif;
       background-color: var(--bg-dark);
-      /* Fallback animated background before video loads */
       background: linear-gradient(-45deg, #0f172a, #1e293b, #020617, #172554);
       background-size: 400% 400%;
       animation: gradientBG 15s ease infinite;
@@ -52,7 +51,6 @@
       justify-content: center;
     }
 
-    /* Standard Layout */
     #remoteVideo {
       width: 100%;
       height: 100%;
@@ -78,7 +76,6 @@
     }
     #localVideo:hover { transform: scale(1.05); }
 
-    /* Swapped Layout (CSS visual swap only, preserves audio routing) */
     .video-container.swapped #localVideo {
       position: relative;
       top: 0; right: 0;
@@ -107,7 +104,6 @@
       cursor: pointer;
     }
 
-    /* Glassmorphism Panels */
     .overlay-panel, #chatPanel {
       background: var(--panel-glass);
       backdrop-filter: blur(20px);
@@ -126,7 +122,6 @@
       text-align: center;
     }
 
-    /* Chat Panel Styles */
     #chatPanel {
       position: absolute;
       bottom: 110px;
@@ -259,7 +254,6 @@
     .action-btn.secondary { background: rgba(255,255,255,0.1); border: 1px solid var(--panel-border); color: var(--text-main); }
     .action-btn.secondary:hover { background: rgba(255,255,255,0.15); }
 
-    /* Sleek Floating Dock */
     .control-bar {
       position: absolute;
       bottom: 24px;
@@ -296,14 +290,12 @@
     .circle-btn svg { width: 22px; height: 22px; stroke-width: 2; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
     .circle-btn:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
     
-    /* State Modifiers */
     .circle-btn.off { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
     .circle-btn.off:hover { background: rgba(239, 68, 68, 0.25); }
     .circle-btn.active { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
     .circle-btn.danger-action { background: var(--danger); color: white; border: none; }
     .circle-btn.danger-action:hover { background: var(--danger-hover); }
 
-    /* SVG Toggling */
     .circle-btn .icon-off { display: none; }
     .circle-btn.off .icon-on { display: none; }
     .circle-btn.off .icon-off { display: block; }
@@ -422,19 +414,14 @@
     </div>
   </div>
 
-  <!-- Sleek Floating Dock -->
   <div class="control-bar">
     <button class="circle-btn" id="btnMute" title="Toggle Microphone">
-      <!-- Mic On -->
       <svg class="icon-on" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-      <!-- Mic Off -->
       <svg class="icon-off" viewBox="0 0 24 24"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
     </button>
 
     <button class="circle-btn" id="btnCam" title="Toggle Camera">
-      <!-- Cam On -->
       <svg class="icon-on" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-      <!-- Cam Off -->
       <svg class="icon-off" viewBox="0 0 24 24"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
     </button>
 
@@ -527,6 +514,13 @@
   function setupDataChannel(channel) {
     channel.onopen = () => console.log("Chat linked");
     channel.onmessage = (e) => {
+      // INVISIBLE SIGNAL CHECK: Automatically reload if the other person clicked end call
+      if (e.data === '__CMD_HANGUP__') {
+        alert("The other person ended the connection.");
+        window.location.reload();
+        return;
+      }
+      
       appendMessage(e.data, 'msg-remote');
       if (chatPanel.classList.contains('hidden')) unreadBadge.style.display = 'block';
     };
@@ -592,8 +586,9 @@
         setupPanel.classList.add('hidden');
         btnEndCall.classList.remove('hidden'); 
       }
+      // Fallback in case they lose internet entirely without clicking hang up
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-        alert("The other person disconnected.");
+        alert("Connection lost unexpectedly.");
         window.location.reload(); 
       }
     };
@@ -733,7 +728,6 @@
     }
   });
 
-  // Fixed Mobile Camera Flip
   document.getElementById('btnFlip').addEventListener('click', async () => {
     if (isScreenSharing) return; 
     const targetMode = currentFacingMode === 'user' ? 'environment' : 'user';
@@ -741,27 +735,22 @@
     try {
       const oldVideoTrack = localStream.getVideoTracks()[0];
       
-      // CRITICAL FIX: Kill the current video track immediately to release 
-      // the hardware lock on mobile devices before requesting the new camera.
       if (oldVideoTrack) {
         oldVideoTrack.stop();
         localStream.removeTrack(oldVideoTrack);
       }
 
-      // Request new camera (removed rigid size constraints which fail on back cameras)
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: targetMode } }
       });
       
       const newVideoTrack = newStream.getVideoTracks()[0];
       
-      // Inject new track into WebRTC live connection
       if (peerConnection) {
         const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
         if (sender) sender.replaceTrack(newVideoTrack);
       }
 
-      // Re-attach to local interface
       localStream.addTrack(newVideoTrack);
       currentFacingMode = targetMode;
 
@@ -826,10 +815,19 @@
 
   btnEndCall.addEventListener('click', () => {
     if(confirm("Are you sure you want to end this connection?")) {
-      if (peerConnection) peerConnection.close();
-      if (localStream) localStream.getTracks().forEach(t => t.stop());
-      if (screenStream) screenStream.getTracks().forEach(t => t.stop());
-      window.location.reload(); 
+      
+      // SEND THE INVISIBLE HANGUP SIGNAL TO THE OTHER PERSON
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send('__CMD_HANGUP__');
+      }
+
+      // Wait 100ms for the signal to shoot across the network before destroying everything
+      setTimeout(() => {
+        if (peerConnection) peerConnection.close();
+        if (localStream) localStream.getTracks().forEach(t => t.stop());
+        if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+        window.location.reload(); 
+      }, 100);
     }
   });
 </script>
