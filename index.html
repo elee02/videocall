@@ -556,8 +556,64 @@
         width: 340px;
         height: 50vh;
       }
-    }
+
+      /* Firebase Specific Styles */
+      .room-code-display {
+        font-size: 2.25rem;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        color: #3b82f6;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 16px;
+        border-radius: 16px;
+        margin: 18px 0;
+        border: 1px solid var(--panel-border);
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
+        font-family: monospace;
+      }
+
+      .room-code-display:hover {
+        background: rgba(59, 130, 246, 0.15);
+        border-color: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+      }
+
+      .room-input {
+        font-size: 1.75rem;
+        text-align: center;
+        letter-spacing: 0.15em;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid var(--panel-border);
+        background: rgba(0, 0, 0, 0.4);
+        color: #fff;
+        margin-bottom: 18px;
+        width: 100%;
+        transition: all 0.3s ease;
+        font-family: monospace;
+      }
+
+      .room-input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 16px rgba(59, 130, 246, 0.25);
+      }
+
+      #txtFirebaseConfig {
+        height: 120px;
+        margin-bottom: 18px;
+      }
   </style>
+  <!-- Firebase App and Database SDKs (Compat version for drop-in CDN simplicity) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 
 <body>
@@ -607,6 +663,48 @@
             <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"></path>
           </svg>
           <span data-i18n="btnJoin">Join Existing Session</span>
+        </button>
+      </div>
+
+      <div id="panelFirebaseSetup" class="hidden">
+        <h3 data-i18n="firebaseSetupTitle">Firebase Setup</h3>
+        <p data-i18n="firebaseSetupSubtitle">Paste your Web App Firebase config JSON to enable 6-digit room codes, or
+          bypass to manual copy-paste.</p>
+        <textarea id="txtFirebaseConfig" placeholder='{ "apiKey": "...", "databaseURL": "...", ... }'></textarea>
+        <button class="action-btn" id="btnSaveFirebaseConfig">
+          <span data-i18n="btnSaveConfig">Enable Auto-Connect</span>
+        </button>
+        <button class="action-btn secondary" id="btnBypassFirebase">
+          <span data-i18n="btnBypassConfig">Use Manual Copy-Paste</span>
+        </button>
+      </div>
+
+      <div id="panelOfferCreatedAuto" class="hidden">
+        <h3 data-i18n="shareRoomTitle">Share Room Code</h3>
+        <p data-i18n="shareRoomSubtitle">Give this 6-digit room code to your partner.</p>
+        <div class="room-code-display" id="lblRoomCode">
+          <span>------</span>
+        </div>
+        <div class="status-tracker" id="statusOfferAuto">Status: Preparing...</div>
+        <button class="action-btn" id="btnCopyRoomCode">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span data-i18n="btnCopyCode">Copy Code</span>
+        </button>
+      </div>
+
+      <div id="panelReceiveOfferAuto" class="hidden">
+        <h3 data-i18n="enterRoomTitle">Enter Room Code</h3>
+        <p data-i18n="enterRoomSubtitle">Enter the 6-digit room code shared by your partner.</p>
+        <input type="tel" maxLength="6" class="room-input" id="txtRoomInput" placeholder="000000" autocomplete="off">
+        <div class="status-tracker" id="statusJoinAuto">Status: Awaiting input...</div>
+        <button class="action-btn" id="btnJoinRoom">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span data-i18n="btnConnectRoom">Join Session</span>
         </button>
       </div>
 
@@ -784,7 +882,24 @@
         alertConnectFirst: "Connect to a call first!",
         alertOtherPersonEnded: "The other person ended the connection.",
         alertConnectionLost: "Connection lost unexpectedly.",
-        confirmEndCall: "Are you sure you want to end this connection?"
+        confirmEndCall: "Are you sure you want to end this connection?",
+        firebaseSetupTitle: "Firebase Setup",
+        firebaseSetupSubtitle: "Paste your Web App Firebase config JSON to enable 6-digit room codes, or bypass to manual copy-paste.",
+        btnSaveConfig: "Enable Auto-Connect",
+        btnBypassConfig: "Use Manual Copy-Paste",
+        shareRoomTitle: "Share Room Code",
+        shareRoomSubtitle: "Give this 6-digit room code to your partner.",
+        btnCopyCode: "Copy Code",
+        enterRoomTitle: "Enter Room Code",
+        enterRoomSubtitle: "Enter the 6-digit room code shared by your partner.",
+        btnConnectRoom: "Join Session",
+        statusOfferGeneratedAuto: "Room code generated! Share it with your partner.",
+        statusConnectingRoom: "Connecting to room...",
+        statusWaitingForPartner: "Waiting for partner to join...",
+        statusConfigSaved: "Firebase configuration saved successfully!",
+        statusInvalidConfig: "Error: Invalid Firebase configuration JSON.",
+        toastRoomCodeCopied: "Room code copied to clipboard!",
+        alertRoomExpired: "Error: Room has expired, been deleted, or does not exist."
       },
       uz: {
         pageTitle: "Pro Connect | Tengdoshlararo Video Aloqa",
@@ -843,7 +958,24 @@
         alertConnectFirst: "Avval aloqa o'rnating!",
         alertOtherPersonEnded: "Suhbatdosh ulanishni yakunladi.",
         alertConnectionLost: "Aloqa kutilmaganda uzildi.",
-        confirmEndCall: "Aloqani yakunlamoqchiligingizga ishonchingiz komilmi?"
+        confirmEndCall: "Aloqani yakunlamoqchiligingizga ishonchingiz komilmi?",
+        firebaseSetupTitle: "Firebase Sozlamalari",
+        firebaseSetupSubtitle: "6 xonali xona kodlarini yoqish uchun Web ilova Firebase JSON sozlamasini joylashtiring yoki qo'lda almashtirishga o'ting.",
+        btnSaveConfig: "Avtomatik ulanishni yoqish",
+        btnBypassConfig: "Qo'lda nusxalashdan foydalanish",
+        shareRoomTitle: "Xona kodini ulashish",
+        shareRoomSubtitle: "Ushbu 6 xonali xona kodini sherigingizga bering.",
+        btnCopyCode: "Kodni nusxalash",
+        enterRoomTitle: "Xona kodini kiriting",
+        enterRoomSubtitle: "Sherigingiz tomonidan ulashilgan 6 xonali xona kodini kiriting.",
+        btnConnectRoom: "Sessiyaga qo'shilish",
+        statusOfferGeneratedAuto: "Xona kodi yaratildi! Uni sherigingizga bering.",
+        statusConnectingRoom: "Xonaga ulanmoqda...",
+        statusWaitingForPartner: "Sherik ulanishi kutilmoqda...",
+        statusConfigSaved: "Firebase sozlamalari muvaffaqiyatli saqlandi!",
+        statusInvalidConfig: "Xato: Noto'g'ri Firebase sozlamalari JSON formatida.",
+        toastRoomCodeCopied: "Xona kodi nusxalandi!",
+        alertRoomExpired: "Xato: Xona muddati tugagan, o'chirilgan yoki mavjud emas."
       }
     };
 
@@ -896,6 +1028,60 @@
     // Synchronously translate initial elements
     setLanguage(currentLang);
 
+    // Default Firebase Configuration. Paste your own Firebase project config below if desired,
+    // or configure it dynamically in the web UI.
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyBYFiqYodnEH6duH6QgawPyAGsLMZrU6fY",
+      authDomain: "videocall-68eab.firebaseapp.com",
+      databaseURL: "https://videocall-68eab-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "videocall-68eab",
+      storageBucket: "videocall-68eab.firebasestorage.app",
+      messagingSenderId: "682954633370",
+      appId: "1:682954633370:web:6f596ef8bcb8911a6e6f23",
+      measurementId: "G-GQ6EEWJXH1"
+    };
+
+    let useManualMode = false;
+    let db = null;
+
+    function getFirebaseConfig() {
+      // Check localStorage first for dynamic configuration
+      const customConfig = localStorage.getItem('custom-firebase-config');
+      if (customConfig) {
+        try {
+          return JSON.parse(customConfig);
+        } catch (e) {
+          console.error("Invalid custom config in localStorage", e);
+        }
+      }
+
+      // Fallback to static config if it's set up
+      if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
+        return firebaseConfig;
+      }
+
+      return null;
+    }
+
+    function initFirebase() {
+      const config = getFirebaseConfig();
+      if (!config) return false;
+      try {
+        if (firebase.apps.length === 0) {
+          firebase.initializeApp(config);
+        }
+        db = firebase.database();
+        return true;
+      } catch (e) {
+        console.error("Firebase init failed", e);
+        return false;
+      }
+    }
+
+    // Try to initialize Firebase immediately
+    const isFirebaseConfigured = initFirebase();
+
     let localStream, peerConnection, dataChannel;
     let currentFacingMode = 'user';
     let isScreenSharing = false;
@@ -909,6 +1095,9 @@
     const setupPanel = document.getElementById('setupPanel');
 
     const panelInit = document.getElementById('panelInit');
+    const panelFirebaseSetup = document.getElementById('panelFirebaseSetup');
+    const panelOfferCreatedAuto = document.getElementById('panelOfferCreatedAuto');
+    const panelReceiveOfferAuto = document.getElementById('panelReceiveOfferAuto');
     const panelOfferCreated = document.getElementById('panelOfferCreated');
     const panelReceiveOffer = document.getElementById('panelReceiveOffer');
     const boxAnswerOutput = document.getElementById('boxAnswerOutput');
@@ -917,9 +1106,14 @@
     const txtRemoteAnswer = document.getElementById('txtRemoteAnswer');
     const txtRemoteOfferInput = document.getElementById('txtRemoteOfferInput');
     const txtLocalAnswer = document.getElementById('txtLocalAnswer');
+    const txtFirebaseConfig = document.getElementById('txtFirebaseConfig');
+    const txtRoomInput = document.getElementById('txtRoomInput');
+    const lblRoomCode = document.getElementById('lblRoomCode');
 
     const statusOffer = document.getElementById('statusOffer');
     const statusJoin = document.getElementById('statusJoin');
+    const statusOfferAuto = document.getElementById('statusOfferAuto');
+    const statusJoinAuto = document.getElementById('statusJoinAuto');
 
     const chatPanel = document.getElementById('chatPanel');
     const chatMessages = document.getElementById('chatMessages');
@@ -1072,10 +1266,271 @@
       return pc;
     }
 
-    // Generate Call
+    let pendingAction = null; // 'create' or 'join'
+    let currentRoomId = null;
+
+    // Firebase Setup Event Listeners
+    document.getElementById('btnSaveFirebaseConfig').addEventListener('click', () => {
+      const rawConfigStr = txtFirebaseConfig.value.trim();
+      if (!rawConfigStr) {
+        alert(translations[currentLang].statusInvalidConfig);
+        return;
+      }
+
+      try {
+        let configObj = null;
+        if (rawConfigStr.includes('{')) {
+          configObj = JSON.parse(rawConfigStr);
+        } else {
+          const cleanStr = rawConfigStr
+            .replace(/([a-zA-Z0-9]+)\s*:/g, '"$1":')
+            .replace(/'/g, '"');
+          configObj = JSON.parse(cleanStr);
+        }
+
+        if (configObj && configObj.apiKey && configObj.databaseURL) {
+          localStorage.setItem('custom-firebase-config', JSON.stringify(configObj));
+          showToast(translations[currentLang].statusConfigSaved);
+
+          const initSuccess = initFirebase();
+          if (initSuccess) {
+            panelFirebaseSetup.classList.add('hidden');
+            if (pendingAction === 'create') {
+              startFirebaseSession();
+            } else if (pendingAction === 'join') {
+              panelReceiveOfferAuto.classList.remove('hidden');
+              txtRoomInput.focus();
+            }
+          } else {
+            alert(translations[currentLang].statusInvalidConfig);
+          }
+        } else {
+          alert(translations[currentLang].statusInvalidConfig);
+        }
+      } catch (e) {
+        alert(translations[currentLang].statusInvalidConfig);
+      }
+    });
+
+    document.getElementById('btnBypassFirebase').addEventListener('click', () => {
+      useManualMode = true;
+      panelFirebaseSetup.classList.add('hidden');
+      if (pendingAction === 'create') {
+        panelOfferCreated.classList.remove('hidden');
+        startManualCreateSession();
+      } else if (pendingAction === 'join') {
+        panelReceiveOffer.classList.remove('hidden');
+      }
+    });
+
+    // 6-Digit Room Code Helper
+    function copyRoomCode() {
+      const code = lblRoomCode.innerText.trim();
+      if (code && code !== '------') {
+        navigator.clipboard.writeText(code);
+        showToast(translations[currentLang].toastRoomCodeCopied);
+      }
+    }
+
+    document.getElementById('btnCopyRoomCode').addEventListener('click', copyRoomCode);
+    lblRoomCode.addEventListener('click', copyRoomCode);
+
+    // Dynamic Route Navigation
     document.getElementById('btnCreateOffer').addEventListener('click', async () => {
       panelInit.classList.add('hidden');
-      panelOfferCreated.classList.remove('hidden');
+
+      const config = getFirebaseConfig();
+      if (config && !useManualMode) {
+        startFirebaseSession();
+      } else if (useManualMode) {
+        panelOfferCreated.classList.remove('hidden');
+        startManualCreateSession();
+      } else {
+        pendingAction = 'create';
+        panelFirebaseSetup.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('btnGoToJoin').addEventListener('click', () => {
+      panelInit.classList.add('hidden');
+
+      const config = getFirebaseConfig();
+      if (config && !useManualMode) {
+        panelReceiveOfferAuto.classList.remove('hidden');
+        txtRoomInput.focus();
+      } else if (useManualMode) {
+        panelReceiveOffer.classList.remove('hidden');
+      } else {
+        pendingAction = 'join';
+        panelFirebaseSetup.classList.remove('hidden');
+      }
+    });
+
+    // --- AUTOMATED SIGNALING PATH (FIREBASE) ---
+    async function startFirebaseSession() {
+      panelOfferCreatedAuto.classList.remove('hidden');
+      statusOfferAuto.className = "status-tracker";
+      statusOfferAuto.innerText = translations[currentLang].statusRequestHardware;
+
+      try {
+        await initMedia();
+        statusOfferAuto.innerText = translations[currentLang].statusInitP2P;
+        peerConnection = buildPeerConnection(statusOfferAuto);
+
+        dataChannel = peerConnection.createDataChannel('chat');
+        setupDataChannel(dataChannel);
+
+        // Generate a random 6-digit room code
+        currentRoomId = Math.floor(100000 + Math.random() * 900000).toString();
+        lblRoomCode.innerText = currentRoomId;
+
+        // Clean up expired rooms older than 10 mins
+        cleanExpiredRooms();
+
+        peerConnection.onicegatheringstatechange = () => {
+          if (peerConnection.iceGatheringState === 'complete') {
+            writeOfferToFirebase(currentRoomId, peerConnection.localDescription);
+          }
+        };
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        statusOfferAuto.innerText = translations[currentLang].statusHarvestingRoutes;
+
+        if (peerConnection.iceGatheringState === 'complete') {
+          writeOfferToFirebase(currentRoomId, peerConnection.localDescription);
+        }
+      } catch (e) {
+        statusOfferAuto.className = "status-tracker err";
+        statusOfferAuto.innerText = translations[currentLang].statusError + e.message;
+      }
+    }
+
+    function writeOfferToFirebase(roomId, localDescription) {
+      if (!db) return;
+      statusOfferAuto.innerText = translations[currentLang].statusOfferGeneratedAuto;
+
+      const roomRef = db.ref('rooms/' + roomId);
+      roomRef.set({
+        offer: {
+          type: localDescription.type,
+          sdp: localDescription.sdp
+        },
+        createdAt: firebase.database.ServerValue.TIMESTAMP
+      }).then(() => {
+        // Listen for remote answer
+        roomRef.on('value', async (snapshot) => {
+          const data = snapshot.val();
+          if (data && data.answer && !peerConnection.currentRemoteDescription) {
+            statusOfferAuto.innerText = translations[currentLang].statusMergeProfiles;
+            try {
+              const rtcSessionDescription = new RTCSessionDescription(data.answer);
+              await peerConnection.setRemoteDescription(rtcSessionDescription);
+              statusOfferAuto.innerText = translations[currentLang].statusEstablishTunnel;
+
+              roomRef.off();
+              roomRef.remove(); // Clean up DB path instantly for privacy
+            } catch (e) {
+              console.error("Error setting remote description", e);
+            }
+          }
+        });
+      }).catch(err => {
+        statusOfferAuto.className = "status-tracker err";
+        statusOfferAuto.innerText = translations[currentLang].statusError + err.message;
+      });
+    }
+
+    async function joinFirebaseSession() {
+      const roomId = txtRoomInput.value.trim();
+      if (!roomId || roomId.length !== 6 || isNaN(roomId)) {
+        alert(translations[currentLang].pasteInvitePlaceholder);
+        return;
+      }
+
+      statusJoinAuto.className = "status-tracker";
+      statusJoinAuto.innerText = translations[currentLang].statusConnectingRoom;
+
+      try {
+        if (!db) return;
+        const roomRef = db.ref('rooms/' + roomId);
+        const snapshot = await roomRef.once('value');
+        const data = snapshot.val();
+
+        if (!data || !data.offer) {
+          statusJoinAuto.className = "status-tracker err";
+          statusJoinAuto.innerText = translations[currentLang].alertRoomExpired;
+          alert(translations[currentLang].alertRoomExpired);
+          return;
+        }
+
+        statusJoinAuto.innerText = translations[currentLang].statusCameraChannels;
+        await initMedia();
+
+        statusJoinAuto.innerText = translations[currentLang].statusSpawnNode;
+        peerConnection = buildPeerConnection(statusJoinAuto);
+
+        const sdp = new RTCSessionDescription(data.offer);
+        await peerConnection.setRemoteDescription(sdp);
+
+        statusJoinAuto.innerText = translations[currentLang].statusReciprocalSDP;
+        const answer = await peerConnection.createAnswer();
+
+        peerConnection.onicegatheringstatechange = () => {
+          if (peerConnection.iceGatheringState === 'complete') {
+            writeAnswerToFirebase(roomRef, peerConnection.localDescription);
+          }
+        };
+
+        await peerConnection.setLocalDescription(answer);
+        statusJoinAuto.innerText = translations[currentLang].statusCollectReturn;
+
+        if (peerConnection.iceGatheringState === 'complete') {
+          writeAnswerToFirebase(roomRef, peerConnection.localDescription);
+        }
+      } catch (e) {
+        statusJoinAuto.className = "status-tracker err";
+        statusJoinAuto.innerText = translations[currentLang].statusRuntimeError + e.message;
+      }
+    }
+
+    function writeAnswerToFirebase(roomRef, localDescription) {
+      statusJoinAuto.innerText = translations[currentLang].statusWaitingForPartner;
+      roomRef.update({
+        answer: {
+          type: localDescription.type,
+          sdp: localDescription.sdp
+        }
+      }).catch(err => {
+        statusJoinAuto.className = "status-tracker err";
+        statusJoinAuto.innerText = translations[currentLang].statusError + err.message;
+      });
+    }
+
+    function cleanExpiredRooms() {
+      if (!db) return;
+      const now = Date.now();
+      const cutoff = now - 10 * 60 * 1000;
+      db.ref('rooms')
+        .orderByChild('createdAt')
+        .endAt(cutoff)
+        .once('value', (snap) => {
+          const rooms = snap.val();
+          if (rooms) {
+            Object.keys(rooms).forEach(key => {
+              db.ref('rooms/' + key).remove();
+            });
+          }
+        });
+    }
+
+    document.getElementById('btnJoinRoom').addEventListener('click', joinFirebaseSession);
+    txtRoomInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') joinFirebaseSession();
+    });
+
+    // --- MANUAL SIGNALING FALLBACK PATH (BASE64) ---
+    async function startManualCreateSession() {
       statusOffer.className = "status-tracker";
       statusOffer.innerText = translations[currentLang].statusRequestHardware;
 
@@ -1106,7 +1561,7 @@
         statusOffer.className = "status-tracker err";
         statusOffer.innerText = translations[currentLang].statusError + e.message;
       }
-    });
+    }
 
     document.getElementById('btnCopyOffer').addEventListener('click', () => {
       if (!txtLocalOffer.value) return;
@@ -1130,12 +1585,7 @@
       }
     });
 
-    // Receive Call
-    document.getElementById('btnGoToJoin').addEventListener('click', () => {
-      panelInit.classList.add('hidden');
-      panelReceiveOffer.classList.remove('hidden');
-    });
-
+    // Receive Call Manual Click
     document.getElementById('btnProcessOffer').addEventListener('click', async () => {
       const offerRaw = cleanKeyString(txtRemoteOfferInput.value);
       if (!offerRaw) return alert(translations[currentLang].alertPasteInviteFirst);
@@ -1154,9 +1604,6 @@
         statusJoin.innerText = translations[currentLang].statusReciprocalSDP;
         const answer = await peerConnection.createAnswer();
 
-        // Register the handler BEFORE setLocalDescription to avoid a race
-        // condition where ICE gathering completes synchronously on fast devices
-        // and fires the event before our handler is attached.
         peerConnection.onicegatheringstatechange = () => {
           if (peerConnection.iceGatheringState === 'complete') {
             txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
@@ -1170,8 +1617,6 @@
         boxAnswerOutput.classList.remove('hidden');
         txtLocalAnswer.value = translations[currentLang].statusAssembleResponse;
 
-        // Synchronous fallback: if ICE was already complete before the async
-        // setLocalDescription returned, populate the answer key immediately.
         if (peerConnection.iceGatheringState === 'complete') {
           txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
           statusJoin.innerText = translations[currentLang].statusSuccessResponse;
