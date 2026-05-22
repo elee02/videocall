@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Pro Connect | Peer-to-Peer</title>
+  <script>
+    // Detects the browser language
+    const lang = navigator.language || navigator.userLanguage;
+    if (lang && lang.startsWith('uz')) {
+      // Redirect Uzbek browsers
+      window.location.replace('uz/index.html');
+    }
+  </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
@@ -332,6 +340,40 @@
 
     hr { border: 0; border-top: 1px solid var(--panel-border); margin: 20px 0; }
 
+    /* Language Switcher Styling */
+    .lang-select {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      background: var(--panel-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--panel-border);
+      padding: 8px 16px;
+      border-radius: 20px;
+      z-index: 40;
+      display: flex;
+      gap: 8px;
+      font-size: 0.85rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .lang-select a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .lang-select a.active {
+      color: var(--text-main);
+      pointer-events: none;
+    }
+    .lang-select a:hover:not(.active) {
+      color: var(--accent);
+    }
+    .lang-select span {
+      color: var(--panel-border);
+    }
+
     @media (min-width: 768px) {
       #localVideo { width: 180px; height: 240px; top: 32px; right: 32px; }
       .video-container.swapped #remoteVideo { width: 180px; height: 240px; top: 32px; right: 32px; }
@@ -343,6 +385,12 @@
   </style>
 </head>
 <body>
+
+  <div class="lang-select">
+    <a href="#" class="active">EN</a>
+    <span>|</span>
+    <a href="uz/index.html">UZ</a>
+  </div>
 
   <div id="toast">Copied successfully!</div>
 

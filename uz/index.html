@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pro Connect | Tengdoshlararo Video Aloqa</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+    :root {
+      --bg-dark: #0f172a;
+      --panel-glass: rgba(15, 23, 42, 0.65);
+      --panel-border: rgba(255, 255, 255, 0.1);
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --icon-color: #ffffff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background-color: var(--bg-dark);
+      background: linear-gradient(-45deg, #0f172a, #1e293b, #020617, #172554);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      color: var(--text-main);
+      height: 100vh;
+      height: 100dvh; 
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* Language Switcher Styling */
+    .lang-select {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      background: var(--panel-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--panel-border);
+      padding: 8px 16px;
+      border-radius: 20px;
+      z-index: 40;
+      display: flex;
+      gap: 8px;
+      font-size: 0.85rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .lang-select a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .lang-select a.active {
+      color: var(--text-main);
+      pointer-events: none;
+    }
+    .lang-select a:hover:not(.active) {
+      color: var(--accent);
+    }
+    .lang-select span {
+      color: var(--panel-border);
+    }
+
+    .video-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #remoteVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain; 
+      transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+      background: transparent;
+    }
+
+    #localVideo {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      width: 120px;
+      height: 160px;
+      border-radius: 16px;
+      object-fit: cover;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+      border: 1px solid var(--panel-border);
+      z-index: 10;
+      background: #000;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    #localVideo:hover { transform: scale(1.05); }
+
+    .video-container.swapped #localVideo {
+      position: relative;
+      top: 0; right: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      object-fit: contain;
+      box-shadow: none;
+      border: none;
+      z-index: 1;
+      cursor: default;
+    }
+    .video-container.swapped #localVideo:hover { transform: none; }
+    
+    .video-container.swapped #remoteVideo {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      width: 120px;
+      height: 160px;
+      border-radius: 16px;
+      object-fit: cover;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+      border: 1px solid var(--panel-border);
+      z-index: 10;
+      cursor: pointer;
+    }
+
+    .overlay-panel, #chatPanel {
+      background: var(--panel-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+    }
+
+    .overlay-panel {
+      position: absolute;
+      border-radius: 24px;
+      padding: 32px 24px;
+      z-index: 20;
+      width: 90%;
+      max-width: 440px;
+      text-align: center;
+    }
+
+    #chatPanel {
+      position: absolute;
+      bottom: 110px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 440px;
+      height: 45vh;
+      max-height: 380px;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      z-index: 25;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    #chatMessages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-right: 6px;
+      user-select: text;
+    }
+    #chatMessages::-webkit-scrollbar { width: 6px; }
+    #chatMessages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+    .chat-msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      word-wrap: break-word;
+      user-select: text;
+    }
+
+    .msg-local { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+    .msg-remote { align-self: flex-start; background: rgba(255,255,255,0.1); border: 1px solid var(--panel-border); color: #fff; border-bottom-left-radius: 4px; }
+
+    .chat-controls { display: flex; gap: 10px; }
+
+    #chatInput {
+      flex: 1;
+      border-radius: 24px;
+      border: 1px solid var(--panel-border);
+      background: rgba(0,0,0,0.3);
+      color: #fff;
+      padding: 0 16px;
+      font-size: 0.95rem;
+      user-select: text;
+      transition: border 0.3s;
+    }
+    #chatInput:focus { outline: none; border-color: var(--accent); }
+
+    #btnSend {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    #btnSend:hover { background: var(--accent-hover); }
+
+    .hidden { display: none !important; opacity: 0; pointer-events: none; }
+
+    h3 { font-size: 1.25rem; margin-bottom: 8px; color: var(--text-main); font-weight: 600; letter-spacing: -0.02em; }
+    p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+
+    .status-tracker {
+      background: rgba(0,0,0,0.4);
+      color: #34d399;
+      font-family: monospace;
+      font-size: 0.8rem;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      text-align: left;
+      border: 1px solid rgba(52, 211, 153, 0.2);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .status-tracker.err { color: #f87171; border-color: rgba(248, 113, 113, 0.2); }
+
+    textarea {
+      width: 100%;
+      height: 90px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--panel-border);
+      color: #fff;
+      font-family: monospace;
+      font-size: 0.8rem;
+      padding: 12px;
+      border-radius: 12px;
+      resize: none;
+      margin-bottom: 16px;
+      user-select: text;
+      transition: border 0.3s;
+    }
+    textarea:focus { outline: none; border-color: var(--accent); }
+
+    .action-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+    .action-btn svg { width: 18px; height: 18px; }
+    .action-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .action-btn.secondary { background: rgba(255,255,255,0.1); border: 1px solid var(--panel-border); color: var(--text-main); }
+    .action-btn.secondary:hover { background: rgba(255,255,255,0.15); }
+
+    .control-bar {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px; 
+      padding: 12px 20px;
+      border-radius: 100px;
+      z-index: 30;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    .circle-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid transparent;
+      color: var(--icon-color);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    .circle-btn svg { width: 22px; height: 22px; stroke-width: 2; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+    .circle-btn:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
+    
+    .circle-btn.off { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .circle-btn.off:hover { background: rgba(239, 68, 68, 0.25); }
+    .circle-btn.active { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
+    .circle-btn.danger-action { background: var(--danger); color: white; border: none; }
+    .circle-btn.danger-action:hover { background: var(--danger-hover); }
+
+    .circle-btn .icon-off { display: none; }
+    .circle-btn.off .icon-on { display: none; }
+    .circle-btn.off .icon-off { display: block; }
+
+    .unread-badge {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 14px;
+      height: 14px;
+      background: var(--danger);
+      border-radius: 50%;
+      border: 2px solid #0f172a;
+      display: none;
+    }
+
+    #toast {
+      position: absolute;
+      top: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: var(--accent);
+      color: #fff;
+      padding: 12px 28px;
+      border-radius: 30px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      z-index: 100;
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+      pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    hr { border: 0; border-top: 1px solid var(--panel-border); margin: 20px 0; }
+
+    @media (min-width: 768px) {
+      #localVideo { width: 180px; height: 240px; top: 32px; right: 32px; }
+      .video-container.swapped #remoteVideo { width: 180px; height: 240px; top: 32px; right: 32px; }
+      .control-bar { bottom: 32px; gap: 16px; padding: 14px 24px; }
+      .circle-btn { width: 54px; height: 54px; }
+      .circle-btn svg { width: 24px; height: 24px; }
+      #chatPanel { bottom: 120px; right: 32px; left: auto; transform: none; width: 340px; height: 50vh; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="lang-select">
+    <a href="../index.html">EN</a>
+    <span>|</span>
+    <a href="#" class="active">UZ</a>
+  </div>
+
+  <div id="toast">Muvaffaqiyatli nusxalandi!</div>
+
+  <div class="video-container" id="videoContainer">
+    <video id="remoteVideo" autoplay playsinline></video>
+    <video id="localVideo" autoplay muted playsinline></video>
+
+    <!-- Chat Overlay -->
+    <div id="chatPanel" class="hidden">
+      <div id="chatMessages"></div>
+      <div class="chat-controls">
+        <input type="text" id="chatInput" placeholder="Xabar..." autocomplete="off">
+        <button id="btnSend">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Setup Wizard -->
+    <div id="setupPanel" class="overlay-panel">
+      <div id="panelInit">
+        <h3>Xavfsiz Video Tunnel</h3>
+        <p>Ikki tomonlama to'liq shifrlangan ulanish. Serverlarsiz va loglarsiz.</p>
+        <button class="action-btn" id="btnCreateOffer">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+          Yangi sessiya yaratish
+        </button>
+        <button class="action-btn secondary" id="btnGoToJoin">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"></path></svg>
+          Mavjud sessiyaga ulanish
+        </button>
+      </div>
+
+      <div id="panelOfferCreated" class="hidden">
+        <h3>1. Taklif kalitini ulashing</h3>
+        <div class="status-tracker" id="statusOffer">Holat: Tayyor...</div>
+        <textarea id="txtLocalOffer" readonly placeholder="Yaratilmoqda..." onclick="this.select()"></textarea>
+        <button class="action-btn" id="btnCopyOffer">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          Kalitni nusxalash
+        </button>
+        <hr>
+        <h3>2. Javob kalitini ulash</h3>
+        <textarea id="txtRemoteAnswer" placeholder="Do'stingizning javob kalitini bu yerga joylashtiring..."></textarea>
+        <button class="action-btn secondary" id="btnLinkStreams">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+          Aloqa o'rnatish
+        </button>
+      </div>
+
+      <div id="panelReceiveOffer" class="hidden">
+        <h3>Sessiyaga ulanish</h3>
+        <div class="status-tracker" id="statusJoin">Holat: Kiritish kutilmoqda...</div>
+        <textarea id="txtRemoteOfferInput" placeholder="Taklif kalitini bu yerga joylashtiring..."></textarea>
+        <button class="action-btn" id="btnProcessOffer">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          Javob yaratish
+        </button>
+        <div id="boxAnswerOutput" class="hidden">
+          <hr>
+          <h3>Sizning javob kalitingiz</h3>
+          <textarea id="txtLocalAnswer" readonly onclick="this.select()"></textarea>
+          <button class="action-btn" id="btnCopyAnswer">
+            <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Javob kalitini nusxalash
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="control-bar">
+    <button class="circle-btn" id="btnMute" title="Mikrofonni yoqish/o'chirish">
+      <svg class="icon-on" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+      <svg class="icon-off" viewBox="0 0 24 24"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+    </button>
+
+    <button class="circle-btn" id="btnCam" title="Kamerani yoqish/o'chirish">
+      <svg class="icon-on" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+      <svg class="icon-off" viewBox="0 0 24 24"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+    </button>
+
+    <button class="circle-btn" id="btnFlip" title="Kamerani aylantirish">
+      <svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+    </button>
+
+    <button class="circle-btn" id="btnScreen" title="Ekranni ulashish">
+      <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+    </button>
+
+    <button class="circle-btn" id="btnChatToggle" title="Chatni ko'rsatish/yashirish">
+      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      <span id="unreadBadge" class="unread-badge"></span>
+    </button>
+
+    <button class="circle-btn danger-action hidden" id="btnEndCall" title="Aloqani yakunlash">
+      <svg viewBox="0 0 24 24"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"></path><line x1="23" y1="1" x2="1" y2="23"></line></svg>
+    </button>
+  </div>
+
+<script>
+  let localStream, peerConnection, dataChannel;
+  let currentFacingMode = 'user';
+  let isScreenSharing = false;
+  let screenStream = null;
+
+  const pcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+  const videoContainer = document.getElementById('videoContainer');
+  const localVideo = document.getElementById('localVideo');
+  const remoteVideo = document.getElementById('remoteVideo');
+  const setupPanel = document.getElementById('setupPanel');
+  
+  const panelInit = document.getElementById('panelInit');
+  const panelOfferCreated = document.getElementById('panelOfferCreated');
+  const panelReceiveOffer = document.getElementById('panelReceiveOffer');
+  const boxAnswerOutput = document.getElementById('boxAnswerOutput');
+
+  const txtLocalOffer = document.getElementById('txtLocalOffer');
+  const txtRemoteAnswer = document.getElementById('txtRemoteAnswer');
+  const txtRemoteOfferInput = document.getElementById('txtRemoteOfferInput');
+  const txtLocalAnswer = document.getElementById('txtLocalAnswer');
+
+  const statusOffer = document.getElementById('statusOffer');
+  const statusJoin = document.getElementById('statusJoin');
+
+  const chatPanel = document.getElementById('chatPanel');
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInput = document.getElementById('chatInput');
+  const unreadBadge = document.getElementById('unreadBadge');
+  const btnChatToggle = document.getElementById('btnChatToggle');
+  const btnEndCall = document.getElementById('btnEndCall');
+
+  window.addEventListener('beforeunload', (e) => {
+    if (peerConnection && peerConnection.connectionState === 'connected') {
+      e.preventDefault();
+      e.returnValue = ''; 
+    }
+  });
+
+  function showToast(text) {
+    const t = document.getElementById('toast');
+    t.innerText = text;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  function cleanKeyString(str) {
+    let s = str.replace(/[^A-Za-z0-9+/=]/g, "");
+    while (s.length % 4 !== 0) s += "=";
+    return s;
+  }
+
+  async function initMedia(facing = 'user') {
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facing } }, 
+        audio: true
+      });
+      localVideo.srcObject = localStream;
+      currentFacingMode = facing;
+      return localStream;
+    } catch (e) {
+      throw new Error("Kamera yoki mikrofonga ruxsat berilmadi yoki u mavjud emas.");
+    }
+  }
+
+  function setupDataChannel(channel) {
+    channel.onopen = () => console.log("Chat linked");
+    channel.onmessage = (e) => {
+      // INVISIBLE SIGNAL CHECK: Automatically reload if the other person clicked end call
+      if (e.data === '__CMD_HANGUP__') {
+        alert("Suhbatdosh ulanishni yakunladi.");
+        window.location.reload();
+        return;
+      }
+      
+      appendMessage(e.data, 'msg-remote');
+      if (chatPanel.classList.contains('hidden')) unreadBadge.style.display = 'block';
+    };
+  }
+
+  function appendMessage(text, className) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `chat-msg ${className}`;
+    msgDiv.innerText = text;
+    chatMessages.appendChild(msgDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  document.getElementById('btnSend').addEventListener('click', sendMessage);
+  chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+  function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text || !dataChannel || dataChannel.readyState !== 'open') return;
+    
+    dataChannel.send(text);
+    appendMessage(text, 'msg-local');
+    chatInput.value = '';
+  }
+
+  btnChatToggle.addEventListener('click', () => {
+    chatPanel.classList.toggle('hidden');
+    btnChatToggle.classList.toggle('active');
+    if (!chatPanel.classList.contains('hidden')) {
+      unreadBadge.style.display = 'none';
+      chatInput.focus();
+    }
+  });
+
+  function buildPeerConnection(statusContainer) {
+    if (peerConnection) {
+      try { peerConnection.close(); } catch(e) {}
+      peerConnection = null;
+    }
+
+    const pc = new RTCPeerConnection(pcConfig);
+    
+    if (localStream) {
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    }
+    
+    pc.ondatachannel = (e) => {
+      dataChannel = e.channel;
+      setupDataChannel(dataChannel);
+    };
+    
+    pc.ontrack = e => {
+      statusContainer.className = "status-tracker";
+      statusContainer.innerText = "Aloqa o'rnatildi! Barqarorlashtirilmoqda...";
+      remoteVideo.srcObject = e.streams[0];
+    };
+    
+    pc.onconnectionstatechange = () => {
+      statusContainer.className = "status-tracker";
+      statusContainer.innerText = "Tizim holati: " + pc.connectionState;
+      
+      if (pc.connectionState === 'connected') {
+        setupPanel.classList.add('hidden');
+        btnEndCall.classList.remove('hidden'); 
+      }
+      // Fallback in case they lose internet entirely without clicking hang up
+      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+        alert("Aloqa kutilmaganda uzildi.");
+        window.location.reload(); 
+      }
+    };
+
+    return pc;
+  }
+
+  // Generate Call
+  document.getElementById('btnCreateOffer').addEventListener('click', async () => {
+    panelInit.classList.add('hidden');
+    panelOfferCreated.classList.remove('hidden');
+    statusOffer.className = "status-tracker";
+    statusOffer.innerText = "Uskunaga ruxsat so'ralmoqda...";
+
+    try {
+      await initMedia();
+      statusOffer.innerText = "Peer-to-Peer dvigateli ishga tushirilmoqda...";
+      peerConnection = buildPeerConnection(statusOffer);
+
+      dataChannel = peerConnection.createDataChannel('chat');
+      setupDataChannel(dataChannel);
+
+      peerConnection.onicegatheringstatechange = () => {
+        if (peerConnection.iceGatheringState === 'complete') {
+          txtLocalOffer.value = btoa(JSON.stringify(peerConnection.localDescription));
+          statusOffer.innerText = "Taklif kaliti tayyor! Quyida nusxalash tugmasini bosing.";
+        }
+      };
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      statusOffer.innerText = "Tarmoq yo'nalishlari yig'ilmoqda...";
+
+      if (peerConnection.iceGatheringState === 'complete') {
+        txtLocalOffer.value = btoa(JSON.stringify(peerConnection.localDescription));
+        statusOffer.innerText = "Taklif kaliti tayyor! Quyida nusxalash tugmasini bosing.";
+      }
+    } catch(e) {
+      statusOffer.className = "status-tracker err";
+      statusOffer.innerText = "Xato: " + e.message;
+    }
+  });
+
+  document.getElementById('btnCopyOffer').addEventListener('click', () => {
+    if (!txtLocalOffer.value) return;
+    navigator.clipboard.writeText(txtLocalOffer.value);
+    showToast("Taklif kaliti nusxalandi!");
+  });
+
+  document.getElementById('btnLinkStreams').addEventListener('click', async () => {
+    const answerRaw = cleanKeyString(txtRemoteAnswer.value);
+    if(!answerRaw) return alert("Iltimos, javob kalitini joylashtiring.");
+    
+    try {
+      statusOffer.className = "status-tracker";
+      statusOffer.innerText = "Kriptografik profillar birlashtirilmoqda...";
+      const sdp = JSON.parse(atob(answerRaw));
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+      statusOffer.innerText = "To'g'ridan-to'g'ri tunnel o'rnatilmoqda...";
+    } catch(e) {
+      statusOffer.className = "status-tracker err";
+      statusOffer.innerText = "Ulanish xatosi. Kalit to'liq nusxalanganligiga ishonch hosil qiling.";
+    }
+  });
+
+  // Receive Call
+  document.getElementById('btnGoToJoin').addEventListener('click', () => {
+    panelInit.classList.add('hidden');
+    panelReceiveOffer.classList.remove('hidden');
+  });
+
+  document.getElementById('btnProcessOffer').addEventListener('click', async () => {
+    const offerRaw = cleanKeyString(txtRemoteOfferInput.value);
+    if(!offerRaw) return alert("Iltimos, avval taklif kalitini joylashtiring.");
+
+    statusJoin.className = "status-tracker";
+    statusJoin.innerText = "Kamera kanallari yoqilmoqda...";
+
+    try {
+      await initMedia();
+      statusJoin.innerText = "Tugunlararo ulanish yaratilmoqda...";
+      peerConnection = buildPeerConnection(statusJoin);
+
+      const sdp = JSON.parse(atob(offerRaw));
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+
+      statusJoin.innerText = "O'zaro sessiya arxitekturasi yaratilmoqda...";
+      const answer = await peerConnection.createAnswer();
+
+      peerConnection.onicegatheringstatechange = () => {
+        if (peerConnection.iceGatheringState === 'complete') {
+          txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
+          statusJoin.innerText = "Muvaffaqiyatli! Quyidagi javob kalitini nusxalang.";
+        }
+      };
+
+      await peerConnection.setLocalDescription(answer);
+      
+      statusJoin.innerText = "Qaytish router manzillari yig'ilmoqda...";
+      boxAnswerOutput.classList.remove('hidden'); 
+      txtLocalAnswer.value = "Xavfsiz javob kaliti yig'ilmoqda...";
+
+      if (peerConnection.iceGatheringState === 'complete') {
+        txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
+        statusJoin.innerText = "Muvaffaqiyatli! Quyidagi javob kalitini nusxalang.";
+      }
+    } catch(e) {
+      statusJoin.className = "status-tracker err";
+      statusJoin.innerText = "Ish vaqtidagi xato: " + e.message;
+    }
+  });
+
+  document.getElementById('btnCopyAnswer').addEventListener('click', () => {
+    if (!txtLocalAnswer.value) return;
+    navigator.clipboard.writeText(txtLocalAnswer.value);
+    showToast("Javob kaliti nusxalandi!");
+  });
+
+  // Hardware Controls
+  document.getElementById('btnMute').addEventListener('click', (e) => {
+    if (!localStream) return;
+    const track = localStream.getAudioTracks()[0];
+    if (track) {
+      track.enabled = !track.enabled;
+      e.currentTarget.classList.toggle('off', !track.enabled);
+    }
+  });
+
+  document.getElementById('btnCam').addEventListener('click', (e) => {
+    if (!localStream) return;
+    if (isScreenSharing) return alert("Avval ekranni ulashishni to'xtating.");
+    
+    const track = localStream.getVideoTracks()[0];
+    if (track) {
+      track.enabled = !track.enabled;
+      e.currentTarget.classList.toggle('off', !track.enabled);
+    }
+  });
+
+  document.getElementById('btnFlip').addEventListener('click', async () => {
+    if (isScreenSharing) return; 
+    const targetMode = currentFacingMode === 'user' ? 'environment' : 'user';
+    
+    try {
+      const oldVideoTrack = localStream.getVideoTracks()[0];
+      
+      if (oldVideoTrack) {
+        oldVideoTrack.stop();
+        localStream.removeTrack(oldVideoTrack);
+      }
+
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: targetMode } }
+      });
+      
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      
+      if (peerConnection) {
+        const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) sender.replaceTrack(newVideoTrack);
+      }
+
+      localStream.addTrack(newVideoTrack);
+      currentFacingMode = targetMode;
+
+    } catch(e) { 
+      console.error(e);
+      showToast("Uskuna cheklovi: Kamerani aylantirib bo'lmaydi.");
+    }
+  });
+
+  document.getElementById('btnScreen').addEventListener('click', async (e) => {
+    if (!peerConnection) return alert("Avval aloqa o'rnating!");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      return alert("Ushbu qurilma yoki brauzerda ekranni ulashish qo'llab-quvvatlanmaydi.");
+    }
+
+    const btn = e.currentTarget;
+
+    if (!isScreenSharing) {
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        
+        const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) sender.replaceTrack(screenTrack);
+        
+        localVideo.srcObject = screenStream;
+        isScreenSharing = true;
+        btn.classList.add('active');
+
+        screenTrack.onended = () => stopScreenSharing(btn);
+      } catch (err) {
+        showToast("Ekranni ulashish bekor qilindi.");
+      }
+    } else {
+      stopScreenSharing(btn);
+    }
+  });
+
+  function stopScreenSharing(btnElement) {
+    if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+    
+    const videoTrack = localStream.getVideoTracks()[0];
+    const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+    if (sender && videoTrack) sender.replaceTrack(videoTrack);
+    
+    localVideo.srcObject = localStream;
+    isScreenSharing = false;
+    btnElement.classList.remove('active');
+  }
+
+  function handleVideoSwap(e) {
+    const isSwapped = videoContainer.classList.contains('swapped');
+    if (e.target.id === 'localVideo' && !isSwapped) {
+      videoContainer.classList.add('swapped');
+    } else if (e.target.id === 'remoteVideo' && isSwapped) {
+      videoContainer.classList.remove('swapped');
+    }
+  }
+
+  localVideo.addEventListener('click', handleVideoSwap);
+  remoteVideo.addEventListener('click', handleVideoSwap);
+
+  btnEndCall.addEventListener('click', () => {
+    if(confirm("Aloqani yakunlamoqchiligingizga ishonchingiz komilmi?")) {
+      
+      // SEND THE INVISIBLE HANGUP SIGNAL TO THE OTHER PERSON
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send('__CMD_HANGUP__');
+      }
+
+      // Wait 100ms for the signal to shoot across the network before destroying everything
+      setTimeout(() => {
+        if (peerConnection) peerConnection.close();
+        if (localStream) localStream.getTracks().forEach(t => t.stop());
+        if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+        window.location.reload(); 
+      }, 100);
+    }
+  });
+</script>
+</body>
+</html>
