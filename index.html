@@ -902,6 +902,13 @@
           </svg>
           <span data-i18n="btnJoin">Join Existing Session</span>
         </button>
+        <button class="action-btn secondary" id="btnOpenSettings" style="margin-top: 10px; background: transparent; border: 1px solid rgba(255,255,255,0.2);">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          <span data-i18n="btnSettings">Settings & Configuration</span>
+        </button>
       </div>
 
       <div id="panelFirebaseSetup" class="hidden">
@@ -1175,7 +1182,8 @@
         statResolution: "Res",
         statBitrate: "Bitrate",
         statLoss: "Loss",
-        btnGoBack: "Go Back"
+        btnGoBack: "Go Back",
+        btnSettings: "Settings & Configuration"
       },
       uz: {
         pageTitle: "Pro Connect | Tengdoshlararo Video Aloqa",
@@ -1267,7 +1275,8 @@
         statResolution: "Ruxsat",
         statBitrate: "Tezlik",
         statLoss: "Yo'qotish",
-        btnGoBack: "Orqaga qaytish"
+        btnGoBack: "Orqaga qaytish",
+        btnSettings: "Sozlamalar"
       }
     };
 
@@ -1907,6 +1916,12 @@
         pendingAction = 'join';
         panelFirebaseSetup.classList.remove('hidden');
       }
+    });
+
+    document.getElementById('btnOpenSettings').addEventListener('click', () => {
+      panelInit.classList.add('hidden');
+      pendingAction = null; // Just opening to edit config
+      panelFirebaseSetup.classList.remove('hidden');
     });
 
     // --- AUTOMATED SIGNALING PATH (FIREBASE) ---
