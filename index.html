@@ -922,6 +922,16 @@
           </svg>
           <span data-i18n="btnSettings">Configurations</span>
         </button>
+        <hr style="margin: 15px 0; border-color: rgba(255,255,255,0.1);">
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;" data-i18n="manualConnectionDesc">100% Serverless Connection</p>
+        <div style="display: flex; gap: 10px;">
+          <button class="action-btn secondary" id="btnCreateManual" style="flex: 1; padding: 10px; font-size: 0.85rem; margin-bottom: 0;">
+            <span data-i18n="btnCreateManual">Create Manual</span>
+          </button>
+          <button class="action-btn secondary" id="btnJoinManual" style="flex: 1; padding: 10px; font-size: 0.85rem; margin-bottom: 0;">
+            <span data-i18n="btnJoinManual">Join Manual</span>
+          </button>
+        </div>
       </div>
 
       <div id="panelFirebaseSetup" class="hidden">
@@ -1208,7 +1218,10 @@
         statBitrate: "Bitrate",
         statLoss: "Loss",
         btnGoBack: "Go Back",
-        btnSettings: "Configurations"
+        btnSettings: "Configurations",
+        btnCreateManual: "Create Manual",
+        btnJoinManual: "Join Manual",
+        manualConnectionDesc: "100% Serverless Connection"
       },
       uz: {
         pageTitle: "Pro Connect | Tengdoshlararo Video Aloqa",
@@ -1301,7 +1314,10 @@
         statBitrate: "Tezlik",
         statLoss: "Yo'qotish",
         btnGoBack: "Orqaga qaytish",
-        btnSettings: "Konfiguratsiyalar"
+        btnSettings: "Konfiguratsiyalar",
+        btnCreateManual: "Qo'lda yaratish",
+        btnJoinManual: "Qo'lda ulanish",
+        manualConnectionDesc: "100% serversiz ulanish"
       }
     };
 
@@ -1903,6 +1919,8 @@
         startManualCreateSession();
       } else if (pendingAction === 'join') {
         panelReceiveOffer.classList.remove('hidden');
+      } else {
+        panelInit.classList.remove('hidden');
       }
     });
 
@@ -1953,6 +1971,17 @@
       panelInit.classList.add('hidden');
       pendingAction = null; // Just opening to edit config
       panelFirebaseSetup.classList.remove('hidden');
+    });
+
+    document.getElementById('btnCreateManual').addEventListener('click', () => {
+      panelInit.classList.add('hidden');
+      panelOfferCreated.classList.remove('hidden');
+      startManualCreateSession();
+    });
+
+    document.getElementById('btnJoinManual').addEventListener('click', () => {
+      panelInit.classList.add('hidden');
+      panelReceiveOffer.classList.remove('hidden');
     });
 
     // --- AUTOMATED SIGNALING PATH (FIREBASE) ---
