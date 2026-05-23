@@ -909,8 +909,10 @@
         <p data-i18n="firebaseSetupSubtitle">Paste your Web App Firebase config JSON to enable 6-digit room codes, or
           bypass to manual copy-paste.</p>
         <textarea id="txtFirebaseConfig" placeholder='{ "apiKey": "...", "databaseURL": "...", ... }'></textarea>
+        <p data-i18n="turnConfigLabel" style="margin-top:8px;margin-bottom:8px;font-size:0.82rem;">TURN Server (recommended for bad networks):</p>
+        <textarea id="txtTurnConfig" style="height:70px;font-size:0.75rem;" placeholder='[{"urls":"turn:server:80","username":"...","credential":"..."}]'></textarea>
         <button class="action-btn" id="btnSaveFirebaseConfig">
-          <span data-i18n="btnSaveConfig">Enable Auto-Connect</span>
+          <span data-i18n="btnSaveConfig">Save &amp; Connect</span>
         </button>
         <button class="action-btn secondary" id="btnBypassFirebase">
           <span data-i18n="btnBypassConfig">Use Manual Copy-Paste</span>
@@ -1141,9 +1143,10 @@
         alertOtherPersonEnded: "The other person ended the connection.",
         alertConnectionLost: "Connection lost unexpectedly.",
         confirmEndCall: "Are you sure you want to end this connection?",
-        firebaseSetupTitle: "Firebase Setup",
-        firebaseSetupSubtitle: "Paste your Web App Firebase config JSON to enable 6-digit room codes, or bypass to manual copy-paste.",
-        btnSaveConfig: "Enable Auto-Connect",
+        firebaseSetupTitle: "Connection Setup",
+        firebaseSetupSubtitle: "Paste your Firebase config JSON to enable 6-digit room codes, or bypass to manual copy-paste.",
+        turnConfigLabel: "TURN Server (recommended for bad networks):",
+        btnSaveConfig: "Save & Connect",
         btnBypassConfig: "Use Manual Copy-Paste",
         shareRoomTitle: "Share Room Code",
         shareRoomSubtitle: "Give this 6-digit room code to your partner.",
@@ -1154,10 +1157,14 @@
         statusOfferGeneratedAuto: "Room code generated! Share it with your partner.",
         statusConnectingRoom: "Connecting to room...",
         statusWaitingForPartner: "Waiting for partner to join...",
-        statusConfigSaved: "Firebase configuration saved successfully!",
+        statusConfigSaved: "Configuration saved successfully!",
         statusInvalidConfig: "Error: Invalid Firebase configuration JSON.",
+        statusInvalidTurnConfig: "Warning: Invalid TURN config (skipped). Expected JSON array.",
         toastRoomCodeCopied: "Room code copied to clipboard!",
         alertRoomExpired: "Error: Room has expired, been deleted, or does not exist.",
+        statusTrickleIce: "Exchanging connection info...",
+        statusIceChecking: "Testing connectivity paths...",
+        statusIceRestart: "Retrying connection...",
         tooltipSpeaker: "Toggle Audio Output",
         toastSpeakerSwitched: "Audio output switched",
         toastSpeakerSystemManaged: "Audio routing is managed by your OS. Swipe to access media controls.",
@@ -1228,9 +1235,10 @@
         alertOtherPersonEnded: "Suhbatdosh ulanishni yakunladi.",
         alertConnectionLost: "Aloqa kutilmaganda uzildi.",
         confirmEndCall: "Aloqani yakunlamoqchiligingizga ishonchingiz komilmi?",
-        firebaseSetupTitle: "Firebase Sozlamalari",
-        firebaseSetupSubtitle: "6 xonali xona kodlarini yoqish uchun Web ilova Firebase JSON sozlamasini joylashtiring yoki qo'lda almashtirishga o'ting.",
-        btnSaveConfig: "Avtomatik ulanishni yoqish",
+        firebaseSetupTitle: "Ulanish Sozlamalari",
+        firebaseSetupSubtitle: "6 xonali xona kodlarini yoqish uchun Firebase JSON sozlamasini joylashtiring yoki qo'lda almashtirishga o'ting.",
+        turnConfigLabel: "TURN Server (yomon tarmoq uchun tavsiya etiladi):",
+        btnSaveConfig: "Saqlash va Ulanish",
         btnBypassConfig: "Qo'lda nusxalashdan foydalanish",
         shareRoomTitle: "Xona kodini ulashish",
         shareRoomSubtitle: "Ushbu 6 xonali xona kodini sherigingizga bering.",
@@ -1241,10 +1249,14 @@
         statusOfferGeneratedAuto: "Xona kodi yaratildi! Uni sherigingizga bering.",
         statusConnectingRoom: "Xonaga ulanmoqda...",
         statusWaitingForPartner: "Sherik ulanishi kutilmoqda...",
-        statusConfigSaved: "Firebase sozlamalari muvaffaqiyatli saqlandi!",
+        statusConfigSaved: "Sozlamalar muvaffaqiyatli saqlandi!",
         statusInvalidConfig: "Xato: Noto'g'ri Firebase sozlamalari JSON formatida.",
+        statusInvalidTurnConfig: "Ogohlantirish: Noto'g'ri TURN sozlamalari (o'tkazib yuborildi). JSON massiv kutilgan.",
         toastRoomCodeCopied: "Xona kodi nusxalandi!",
         alertRoomExpired: "Xato: Xona muddati tugagan, o'chirilgan yoki mavjud emas.",
+        statusTrickleIce: "Ulanish ma'lumotlari almashtirilmoqda...",
+        statusIceChecking: "Ulanish yo'llari tekshirilmoqda...",
+        statusIceRestart: "Ulanish qayta urinilmoqda...",
         tooltipSpeaker: "Ovoz chiqishini o'zgartirish",
         toastSpeakerSwitched: "Ovoz chiqishi o'zgartirildi",
         toastSpeakerSystemManaged: "Ovoz tizim tomonidan boshqariladi. Media sozlamalaridan o'zgartiring.",
@@ -1308,20 +1320,6 @@
     // Synchronously translate initial elements
     setLanguage(currentLang);
 
-    // Default Firebase Configuration. Paste your own Firebase project config below if desired,
-    // or configure it dynamically in the web UI.
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-    const firebaseConfig = {
-      apiKey: "AIzaSyBYFiqYodnEH6duH6QgawPyAGsLMZrU6fY",
-      authDomain: "videocall-68eab.firebaseapp.com",
-      databaseURL: "https://videocall-68eab-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "videocall-68eab",
-      storageBucket: "videocall-68eab.firebasestorage.app",
-      messagingSenderId: "682954633370",
-      appId: "1:682954633370:web:6f596ef8bcb8911a6e6f23",
-      measurementId: "G-GQ6EEWJXH1"
-    };
-
     let useManualMode = false;
     let db = null;
 
@@ -1332,22 +1330,51 @@
     let iceGatheringTimeout = null;    // Safety timeout for ICE gathering
 
     function getFirebaseConfig() {
-      // Check localStorage first for dynamic configuration
       const customConfig = localStorage.getItem('custom-firebase-config');
       if (customConfig) {
         try {
           return JSON.parse(customConfig);
         } catch (e) {
-          console.error("Invalid custom config in localStorage", e);
+          console.error('[Firebase] Invalid config in localStorage', e);
         }
       }
-
-      // Fallback to static config if it's set up
-      if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
-        return firebaseConfig;
-      }
-
       return null;
+    }
+
+    /**
+     * Load user-provided TURN server config from localStorage.
+     * Expected format: JSON array of iceServer objects, e.g.
+     * [{"urls":"turn:server:80","username":"u","credential":"p"}]
+     */
+    function getTurnConfig() {
+      const raw = localStorage.getItem('custom-turn-config');
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (e) {
+          console.error('[ICE] Invalid TURN config in localStorage', e);
+        }
+      }
+      return [];
+    }
+
+    /**
+     * Build the full ICE configuration dynamically.
+     * Merges default free STUN servers with user-provided TURN servers.
+     */
+    function buildIceConfig() {
+      const defaultStun = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+      ];
+      const turnServers = getTurnConfig();
+      const iceServers = [...defaultStun, ...turnServers];
+      console.log('[ICE] Built config:', iceServers.length, 'servers (' + defaultStun.length + ' STUN +', turnServers.length, 'TURN)');
+      return { iceServers, iceCandidatePoolSize: 10 };
     }
 
     function initFirebase() {
@@ -1356,13 +1383,15 @@
       try {
         if (firebase.apps.length === 0) {
           firebase.initializeApp(config);
+          console.log('[Firebase] App initialized');
         }
         db = firebase.database();
         // Ensure we start online (in case a previous session called goOffline)
         db.goOnline();
+        console.log('[Firebase] Database online');
         return true;
       } catch (e) {
-        console.error("Firebase init failed", e);
+        console.error('[Firebase] Init failed', e);
         return false;
       }
     }
@@ -1444,7 +1473,7 @@
     let lastVideoFrames = 0;
     let lastPlaybackFramesTime = 0;
 
-    const pcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    // pcConfig is now built dynamically by buildIceConfig() at connection time
 
     const videoContainer = document.getElementById('videoContainer');
     const localVideo = document.getElementById('localVideo');
@@ -1467,7 +1496,16 @@
     const txtRemoteOfferInput = document.getElementById('txtRemoteOfferInput');
     const txtLocalAnswer = document.getElementById('txtLocalAnswer');
     const txtFirebaseConfig = document.getElementById('txtFirebaseConfig');
+    const txtTurnConfig = document.getElementById('txtTurnConfig');
     const txtRoomInput = document.getElementById('txtRoomInput');
+
+    // Pre-populate config textareas from localStorage (so users see their saved config)
+    {
+      const savedFb = localStorage.getItem('custom-firebase-config');
+      if (savedFb) txtFirebaseConfig.value = savedFb;
+      const savedTurn = localStorage.getItem('custom-turn-config');
+      if (savedTurn) txtTurnConfig.value = savedTurn;
+    }
     const lblRoomCode = document.getElementById('lblRoomCode');
 
     const statusOffer = document.getElementById('statusOffer');
@@ -1581,7 +1619,7 @@
         peerConnection = null;
       }
 
-      const pc = new RTCPeerConnection(pcConfig);
+      const pc = new RTCPeerConnection(buildIceConfig());
 
       if (localStream) {
         localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -1600,13 +1638,21 @@
 
       let disconnectTimer = null;
       let wasEverConnected = false;
+      let hasAttemptedRestart = false;
 
       pc.onconnectionstatechange = () => {
+        console.log(`[ICE] Connection state: ${pc.connectionState}`);
         statusContainer.className = "status-tracker";
         statusContainer.innerText = translations[currentLang].statusSystemState + pc.connectionState;
 
+        if (pc.connectionState === 'checking') {
+           statusContainer.innerText = translations[currentLang].statusIceChecking;
+        }
+
         if (pc.connectionState === 'connected') {
+          console.log('[ICE] Connection state: connected ✓');
           wasEverConnected = true;
+          hasAttemptedRestart = false;
           // Clear any pending disconnect timer if we recover
           if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
           setupPanel.classList.add('hidden');
@@ -1622,13 +1668,27 @@
           // WebRTC is connected — Firebase signaling is done.
           // Disconnect the Firebase WebSocket to free the idle connection.
           scheduleFirebaseDisconnect();
+
+          // Cleanup room if we are the creator (deferred to here to allow trickle ICE)
+          if (pendingAction === 'create' && currentRoomId && db) {
+            console.log(`[Firebase] Cleaning up room ${currentRoomId}`);
+            try { db.ref('rooms/' + currentRoomId).remove(); } catch (_) { }
+          }
         }
 
-        // IMPORTANT: Only react to failures AFTER we've been connected at least once.
-        // During the manual copy-paste signaling phase, the receiver's ICE checks
-        // will fail because the offerer hasn't applied the answer yet — this is
-        // completely normal and expected. We must not reload the page for it.
-        if (!wasEverConnected) return;
+        // IMPORTANT: Only react to failures AFTER we've been connected at least once,
+        // UNLESS we are using Firebase where we can do an ICE restart.
+        if (!wasEverConnected) {
+          if (pc.connectionState === 'failed' && currentRoomId && !hasAttemptedRestart) {
+            console.warn('[ICE] Initial connection failed, attempting ICE restart...');
+            hasAttemptedRestart = true;
+            statusContainer.innerText = translations[currentLang].statusIceRestart;
+            pc.restartIce();
+            // Firebase real-time signaling will pick up the new offer/answer negotiation automatically
+            // because trickle ICE listeners are still active (they only detach on disconnectFirebase)
+          }
+          return;
+        }
 
         // 'failed' is a terminal state — reload immediately
         if (pc.connectionState === 'failed') {
@@ -1693,7 +1753,6 @@
       // 6. Reset signaling state variables
       currentRoomId = null;
       pendingAction = null;
-      offerWrittenToFirebase = false;
 
       // 7. Clear ICE gathering safety timeout
       if (iceGatheringTimeout) {
@@ -1755,6 +1814,21 @@
             .replace(/([a-zA-Z0-9]+)\s*:/g, '"$1":')
             .replace(/'/g, '"');
           configObj = JSON.parse(cleanStr);
+        }
+
+        // Handle TURN config independently
+        const rawTurnStr = document.getElementById('txtTurnConfig').value.trim();
+        if (rawTurnStr) {
+          try {
+            const turnObj = JSON.parse(rawTurnStr);
+            if (!Array.isArray(turnObj)) throw new Error('Not an array');
+            localStorage.setItem('custom-turn-config', rawTurnStr);
+          } catch (te) {
+            console.error('[ICE] Invalid TURN JSON', te);
+            showToast(translations[currentLang].statusInvalidTurnConfig);
+          }
+        } else {
+          localStorage.removeItem('custom-turn-config');
         }
 
         if (configObj && configObj.apiKey && configObj.databaseURL) {
@@ -1836,13 +1910,10 @@
     });
 
     // --- AUTOMATED SIGNALING PATH (FIREBASE) ---
-    let offerWrittenToFirebase = false;
-
     async function startFirebaseSession() {
       panelOfferCreatedAuto.classList.remove('hidden');
       statusOfferAuto.className = "status-tracker";
       statusOfferAuto.innerText = translations[currentLang].statusRequestHardware;
-      offerWrittenToFirebase = false;
 
       try {
         await initMedia();
@@ -1866,76 +1937,65 @@
           });
         }
 
-        peerConnection.onicegatheringstatechange = () => {
-          if (peerConnection.iceGatheringState === 'complete') {
-            if (iceGatheringTimeout) { clearTimeout(iceGatheringTimeout); iceGatheringTimeout = null; }
-            writeOfferToFirebase(currentRoomId, peerConnection.localDescription);
+        const roomRef = db.ref('rooms/' + currentRoomId);
+
+        // TRICKLE ICE: Stream candidates as they are discovered
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            console.log('[ICE] New local candidate (creator):', event.candidate.candidate);
+            roomRef.child('offerCandidates').push(event.candidate.toJSON());
           }
         };
 
-        // Safety timeout: if ICE gathering doesn't complete in 30s,
-        // force-write whatever candidates we have so we don't idle forever
-        iceGatheringTimeout = setTimeout(() => {
-          if (peerConnection && !offerWrittenToFirebase && peerConnection.localDescription) {
-            console.warn('[ICE] Gathering timed out after 30s – writing partial offer');
-            writeOfferToFirebase(currentRoomId, peerConnection.localDescription);
-          }
-        }, 30000);
-
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
-        statusOfferAuto.innerText = translations[currentLang].statusHarvestingRoutes;
 
-        if (peerConnection.iceGatheringState === 'complete') {
-          writeOfferToFirebase(currentRoomId, peerConnection.localDescription);
-        }
-      } catch (e) {
-        statusOfferAuto.className = "status-tracker err";
-        statusOfferAuto.innerText = translations[currentLang].statusError + e.message;
-      }
-    }
+        statusOfferAuto.innerText = translations[currentLang].statusTrickleIce;
 
-    function writeOfferToFirebase(roomId, localDescription) {
-      if (!db || offerWrittenToFirebase) return;
-      offerWrittenToFirebase = true;
-      statusOfferAuto.innerText = translations[currentLang].statusOfferGeneratedAuto;
+        // Reveal the room code to the user now that the offer is ready
+        lblRoomCode.innerText = currentRoomId;
+        statusOfferAuto.innerText = translations[currentLang].statusOfferGeneratedAuto;
 
-      // Now reveal the room code to the user
-      lblRoomCode.innerText = roomId;
+        // Write offer immediately (no waiting for gathering)
+        await roomRef.update({
+          offer: {
+            type: offer.type,
+            sdp: offer.sdp
+          }
+        });
+        console.log('[Firebase] Offer written immediately');
 
-      const roomRef = db.ref('rooms/' + roomId);
-      roomRef.update({
-        offer: {
-          type: localDescription.type,
-          sdp: localDescription.sdp
-        }
-      }).then(() => {
-        // Listen for remote answer using tracked listener
+        // Listen for the remote answer
         const answerHandler = async (snapshot) => {
           const data = snapshot.val();
-          if (data && data.answer && !peerConnection.currentRemoteDescription) {
+          if (data && data.answer && peerConnection.signalingState !== 'stable') {
+            console.log('[Firebase] Answer received — setting remote description');
             statusOfferAuto.innerText = translations[currentLang].statusMergeProfiles;
             try {
               const rtcSessionDescription = new RTCSessionDescription(data.answer);
               await peerConnection.setRemoteDescription(rtcSessionDescription);
-              statusOfferAuto.innerText = translations[currentLang].statusEstablishTunnel;
-
-              // Detach this specific listener and clean up room
-              roomRef.off('value', answerHandler);
-              activeFirebaseListeners = activeFirebaseListeners.filter(
-                l => l.callback !== answerHandler
-              );
-              roomRef.remove(); // Clean up DB path instantly for privacy
+              statusOfferAuto.innerText = translations[currentLang].statusTrickleIce;
             } catch (e) {
-              console.error("Error setting remote description", e);
+              console.error("[WebRTC] Error setting remote description", e);
             }
           }
         };
         addFirebaseListener(roomRef, 'value', answerHandler);
-      }).catch(err => {
+
+        // Listen for joiner's trickle candidates
+        const answerCandidatesHandler = (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            console.log('[Firebase] Remote candidate received (joiner)');
+            peerConnection.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.error('[WebRTC] Error adding ICE candidate', e));
+          }
+        };
+        addFirebaseListener(roomRef.child('answerCandidates'), 'child_added', answerCandidatesHandler);
+
+      } catch (e) {
         statusOfferAuto.className = "status-tracker err";
-        statusOfferAuto.innerText = translations[currentLang].statusError + err.message;
-      });
+        statusOfferAuto.innerText = translations[currentLang].statusError + e.message;
+      }
     }
 
     async function joinFirebaseSession() {
@@ -1999,50 +2059,49 @@
         statusJoinAuto.innerText = translations[currentLang].statusSpawnNode;
         peerConnection = buildPeerConnection(statusJoinAuto);
 
+        // TRICKLE ICE: Stream candidates as they are discovered
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            console.log('[ICE] New local candidate (joiner):', event.candidate.candidate);
+            roomRef.child('answerCandidates').push(event.candidate.toJSON());
+          }
+        };
+
         const sdp = new RTCSessionDescription(offerData);
         await peerConnection.setRemoteDescription(sdp);
 
         statusJoinAuto.innerText = translations[currentLang].statusReciprocalSDP;
         const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
 
-        peerConnection.onicegatheringstatechange = () => {
-          if (peerConnection.iceGatheringState === 'complete') {
-            if (iceGatheringTimeout) { clearTimeout(iceGatheringTimeout); iceGatheringTimeout = null; }
-            writeAnswerToFirebase(roomRef, peerConnection.localDescription);
+        statusJoinAuto.innerText = translations[currentLang].statusTrickleIce;
+
+        // Listen for creator's trickle candidates
+        const offerCandidatesHandler = (snapshot) => {
+          const candidateData = snapshot.val();
+          if (candidateData) {
+            console.log('[Firebase] Remote candidate received (creator)');
+            peerConnection.addIceCandidate(new RTCIceCandidate(candidateData)).catch(e => console.error('[WebRTC] Error adding ICE candidate', e));
           }
         };
+        addFirebaseListener(roomRef.child('offerCandidates'), 'child_added', offerCandidatesHandler);
 
-        // Safety timeout for joiner ICE gathering as well
-        iceGatheringTimeout = setTimeout(() => {
-          if (peerConnection && peerConnection.localDescription) {
-            console.warn('[ICE] Joiner gathering timed out after 30s – writing partial answer');
-            writeAnswerToFirebase(roomRef, peerConnection.localDescription);
+        // Write answer immediately
+        roomRef.update({
+          answer: {
+            type: answer.type,
+            sdp: answer.sdp
           }
-        }, 30000);
+        }).catch(err => {
+          statusJoinAuto.className = "status-tracker err";
+          statusJoinAuto.innerText = translations[currentLang].statusError + err.message;
+        });
+        console.log('[Firebase] Answer written immediately');
 
-        await peerConnection.setLocalDescription(answer);
-        statusJoinAuto.innerText = translations[currentLang].statusCollectReturn;
-
-        if (peerConnection.iceGatheringState === 'complete') {
-          writeAnswerToFirebase(roomRef, peerConnection.localDescription);
-        }
       } catch (e) {
         statusJoinAuto.className = "status-tracker err";
         statusJoinAuto.innerText = translations[currentLang].statusRuntimeError + e.message;
       }
-    }
-
-    function writeAnswerToFirebase(roomRef, localDescription) {
-      statusJoinAuto.innerText = translations[currentLang].statusWaitingForPartner;
-      roomRef.update({
-        answer: {
-          type: localDescription.type,
-          sdp: localDescription.sdp
-        }
-      }).catch(err => {
-        statusJoinAuto.className = "status-tracker err";
-        statusJoinAuto.innerText = translations[currentLang].statusError + err.message;
-      });
     }
 
     function cleanExpiredRooms() {
