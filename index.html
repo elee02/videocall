@@ -151,6 +151,8 @@
       width: 90%;
       max-width: 440px;
       text-align: center;
+      max-height: 85vh;
+      overflow-y: auto;
     }
 
     #chatPanel {
@@ -946,9 +948,6 @@
         <button class="action-btn" id="btnSaveFirebaseConfig">
           <span data-i18n="btnSaveConfig">Save &amp; Connect</span>
         </button>
-        <button class="action-btn secondary" id="btnBypassFirebase">
-          <span data-i18n="btnBypassConfig">Use Manual Copy-Paste</span>
-        </button>
         <button class="go-back-link" onclick="goBackToInit()">
           <svg viewBox="0 0 24 24">
             <polyline points="15 18 9 12 15 6"></polyline>
@@ -1370,7 +1369,6 @@
     // Synchronously translate initial elements
     setLanguage(currentLang);
 
-    let useManualMode = false;
     let db = null;
 
     // --- Firebase WebSocket lifecycle management ---
@@ -1911,19 +1909,6 @@
       }
     });
 
-    document.getElementById('btnBypassFirebase').addEventListener('click', () => {
-      useManualMode = true;
-      panelFirebaseSetup.classList.add('hidden');
-      if (pendingAction === 'create') {
-        panelOfferCreated.classList.remove('hidden');
-        startManualCreateSession();
-      } else if (pendingAction === 'join') {
-        panelReceiveOffer.classList.remove('hidden');
-      } else {
-        panelInit.classList.remove('hidden');
-      }
-    });
-
     // 6-Digit Room Code Helper
     function copyRoomCode() {
       const code = lblRoomCode.innerText.trim();
@@ -1941,11 +1926,8 @@
       panelInit.classList.add('hidden');
 
       const config = getFirebaseConfig();
-      if (config && !useManualMode) {
+      if (config) {
         startFirebaseSession();
-      } else if (useManualMode) {
-        panelOfferCreated.classList.remove('hidden');
-        startManualCreateSession();
       } else {
         pendingAction = 'create';
         panelFirebaseSetup.classList.remove('hidden');
@@ -1956,11 +1938,9 @@
       panelInit.classList.add('hidden');
 
       const config = getFirebaseConfig();
-      if (config && !useManualMode) {
+      if (config) {
         panelReceiveOfferAuto.classList.remove('hidden');
         txtRoomInput.focus();
-      } else if (useManualMode) {
-        panelReceiveOffer.classList.remove('hidden');
       } else {
         pendingAction = 'join';
         panelFirebaseSetup.classList.remove('hidden');
