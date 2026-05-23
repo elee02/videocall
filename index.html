@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Pro Connect | Peer-to-Peer</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
   <script>
     // Detect preferred language early to minimize FOUT
     let currentLang = localStorage.getItem('preferred-lang');
@@ -965,7 +966,7 @@
         <div class="room-code-display" id="lblRoomCode">
           <span>------</span>
         </div>
-        <div class="status-tracker" id="statusOfferAuto">Status: Preparing...</div>
+        <div class="status-tracker" id="statusOfferAuto" data-i18n="statusPreparing">Status: Preparing...</div>
         <button class="action-btn" id="btnCopyRoomCode">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -985,7 +986,7 @@
         <h3 data-i18n="enterRoomTitle">Enter Room Code</h3>
         <p data-i18n="enterRoomSubtitle">Enter the 6-digit room code shared by your partner.</p>
         <input type="tel" maxLength="6" class="room-input" id="txtRoomInput" placeholder="000000" autocomplete="off">
-        <div class="status-tracker" id="statusJoinAuto">Status: Awaiting input...</div>
+        <div class="status-tracker" id="statusJoinAuto" data-i18n="statusAwaitingInput">Status: Awaiting input...</div>
         <button class="action-btn" id="btnJoinRoom">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
             <polyline points="20 6 9 17 4 12"></polyline>
@@ -1002,7 +1003,7 @@
 
       <div id="panelOfferCreated" class="hidden">
         <h3 data-i18n="shareInviteTitle">1. Share Invite Key</h3>
-        <div class="status-tracker" id="statusOffer">Status: Ready...</div>
+        <div class="status-tracker" id="statusOffer" data-i18n="statusReady">Status: Ready...</div>
         <textarea id="txtLocalOffer" readonly data-i18n-placeholder="generatingPlaceholder" placeholder="Generating..."
           onclick="this.select()"></textarea>
         <button class="action-btn" id="btnCopyOffer">
@@ -1033,7 +1034,7 @@
 
       <div id="panelReceiveOffer" class="hidden">
         <h3 data-i18n="joinConnectionTitle">Join Connection</h3>
-        <div class="status-tracker" id="statusJoin">Status: Awaiting input...</div>
+        <div class="status-tracker" id="statusJoin" data-i18n="statusAwaitingInput">Status: Awaiting input...</div>
         <textarea id="txtRemoteOfferInput" data-i18n-placeholder="pasteInvitePlaceholder"
           placeholder="Paste invite key here..."></textarea>
         <button class="action-btn" id="btnProcessOffer">
@@ -1158,6 +1159,7 @@
         tooltipScreen: "Share Screen",
         tooltipChat: "Toggle Chat",
         tooltipEndCall: "End Call",
+        statusPreparing: "Status: Preparing...",
         statusReady: "Status: Ready...",
         statusAwaitingInput: "Status: Awaiting input...",
         statusRequestHardware: "Requesting hardware access...",
@@ -1254,6 +1256,7 @@
         tooltipScreen: "Ekranni ulashish",
         tooltipChat: "Chatni ko'rsatish/yashirish",
         tooltipEndCall: "Aloqani yakunlash",
+        statusPreparing: "Holat: Tayyorlanmoqda...",
         statusReady: "Holat: Tayyor...",
         statusAwaitingInput: "Holat: Kiritish kutilmoqda...",
         statusRequestHardware: "Uskunaga ruxsat so'ralmoqda...",
@@ -1338,7 +1341,8 @@
       document.querySelectorAll('[data-i18n]').forEach(elem => {
         const key = elem.getAttribute('data-i18n');
         if (translations[lang] && translations[lang][key]) {
-          elem.textContent = translations[lang][key];
+          const append = elem.getAttribute('data-i18n-append') || '';
+          elem.textContent = translations[lang][key] + append;
         }
       });
 
@@ -1687,6 +1691,8 @@
 
       pc.ontrack = e => {
         statusContainer.className = "status-tracker";
+        statusContainer.setAttribute('data-i18n', 'statusLinkedStabilizing');
+        statusContainer.removeAttribute('data-i18n-append');
         statusContainer.innerText = translations[currentLang].statusLinkedStabilizing;
         remoteVideo.srcObject = e.streams[0];
       };
@@ -1698,10 +1704,14 @@
       pc.onconnectionstatechange = () => {
         console.log(`[ICE] Connection state: ${pc.connectionState}`);
         statusContainer.className = "status-tracker";
+        statusContainer.setAttribute('data-i18n', 'statusSystemState');
+        statusContainer.setAttribute('data-i18n-append', pc.connectionState);
         statusContainer.innerText = translations[currentLang].statusSystemState + pc.connectionState;
 
         if (pc.connectionState === 'checking') {
-          statusContainer.innerText = translations[currentLang].statusIceChecking;
+          statusContainer.setAttribute('data-i18n', 'statusIceChecking');
+        statusContainer.removeAttribute('data-i18n-append');
+        statusContainer.innerText = translations[currentLang].statusIceChecking;
         }
 
         if (pc.connectionState === 'connected') {
@@ -1737,7 +1747,9 @@
           if (pc.connectionState === 'failed' && currentRoomId && !hasAttemptedRestart) {
             console.warn('[ICE] Initial connection failed, attempting ICE restart...');
             hasAttemptedRestart = true;
-            statusContainer.innerText = translations[currentLang].statusIceRestart;
+            statusContainer.setAttribute('data-i18n', 'statusIceRestart');
+        statusContainer.removeAttribute('data-i18n-append');
+        statusContainer.innerText = translations[currentLang].statusIceRestart;
             pc.restartIce();
             // Firebase real-time signaling will pick up the new offer/answer negotiation automatically
             // because trickle ICE listeners are still active (they only detach on disconnectFirebase)
@@ -1825,13 +1837,21 @@
 
       // 9. Reset status trackers
       statusOffer.className = 'status-tracker';
-      statusOffer.innerText = translations[currentLang].statusReady;
+      statusOffer.setAttribute('data-i18n', 'statusReady'); statusOffer.removeAttribute('data-i18n-append'); statusOffer.setAttribute('data-i18n', 'statusReady');
+        statusOffer.removeAttribute('data-i18n-append');
+        statusOffer.innerText = translations[currentLang].statusReady;
       statusJoin.className = 'status-tracker';
-      statusJoin.innerText = translations[currentLang].statusAwaitingInput;
+      statusJoin.setAttribute('data-i18n', 'statusAwaitingInput'); statusJoin.removeAttribute('data-i18n-append'); statusJoin.setAttribute('data-i18n', 'statusAwaitingInput');
+        statusJoin.removeAttribute('data-i18n-append');
+        statusJoin.innerText = translations[currentLang].statusAwaitingInput;
       statusOfferAuto.className = 'status-tracker';
-      statusOfferAuto.innerText = 'Status: Preparing...';
+      statusOfferAuto.setAttribute('data-i18n', 'statusPreparing'); statusOfferAuto.removeAttribute('data-i18n-append'); statusOfferAuto.setAttribute('data-i18n', 'statusPreparing');
+        statusOfferAuto.removeAttribute('data-i18n-append');
+        statusOfferAuto.innerText = translations[currentLang].statusPreparing;
       statusJoinAuto.className = 'status-tracker';
-      statusJoinAuto.innerText = translations[currentLang].statusAwaitingInput;
+      statusJoinAuto.setAttribute('data-i18n', 'statusAwaitingInput'); statusJoinAuto.removeAttribute('data-i18n-append'); statusJoinAuto.setAttribute('data-i18n', 'statusAwaitingInput');
+        statusJoinAuto.removeAttribute('data-i18n-append');
+        statusJoinAuto.innerText = translations[currentLang].statusAwaitingInput;
 
       // 10. Hide all sub-panels and show init panel
       panelFirebaseSetup.classList.add('hidden');
@@ -1971,10 +1991,14 @@
     async function startFirebaseSession() {
       panelOfferCreatedAuto.classList.remove('hidden');
       statusOfferAuto.className = "status-tracker";
-      statusOfferAuto.innerText = translations[currentLang].statusRequestHardware;
+      statusOfferAuto.setAttribute('data-i18n', 'statusRequestHardware');
+        statusOfferAuto.removeAttribute('data-i18n-append');
+        statusOfferAuto.innerText = translations[currentLang].statusRequestHardware;
 
       try {
         await initMedia();
+        statusOfferAuto.setAttribute('data-i18n', 'statusInitP2P');
+        statusOfferAuto.removeAttribute('data-i18n-append');
         statusOfferAuto.innerText = translations[currentLang].statusInitP2P;
         peerConnection = buildPeerConnection(statusOfferAuto);
 
@@ -2008,10 +2032,14 @@
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
 
+        statusOfferAuto.setAttribute('data-i18n', 'statusTrickleIce');
+        statusOfferAuto.removeAttribute('data-i18n-append');
         statusOfferAuto.innerText = translations[currentLang].statusTrickleIce;
 
         // Reveal the room code to the user now that the offer is ready
         lblRoomCode.innerText = currentRoomId;
+        statusOfferAuto.setAttribute('data-i18n', 'statusOfferGeneratedAuto');
+        statusOfferAuto.removeAttribute('data-i18n-append');
         statusOfferAuto.innerText = translations[currentLang].statusOfferGeneratedAuto;
 
         // Write offer immediately (no waiting for gathering)
@@ -2028,11 +2056,15 @@
           const data = snapshot.val();
           if (data && data.answer && peerConnection.signalingState !== 'stable') {
             console.log('[Firebase] Answer received — setting remote description');
-            statusOfferAuto.innerText = translations[currentLang].statusMergeProfiles;
+            statusOfferAuto.setAttribute('data-i18n', 'statusMergeProfiles');
+        statusOfferAuto.removeAttribute('data-i18n-append');
+        statusOfferAuto.innerText = translations[currentLang].statusMergeProfiles;
             try {
               const rtcSessionDescription = new RTCSessionDescription(data.answer);
               await peerConnection.setRemoteDescription(rtcSessionDescription);
-              statusOfferAuto.innerText = translations[currentLang].statusTrickleIce;
+              statusOfferAuto.setAttribute('data-i18n', 'statusTrickleIce');
+        statusOfferAuto.removeAttribute('data-i18n-append');
+        statusOfferAuto.innerText = translations[currentLang].statusTrickleIce;
             } catch (e) {
               console.error("[WebRTC] Error setting remote description", e);
             }
@@ -2052,6 +2084,8 @@
 
       } catch (e) {
         statusOfferAuto.className = "status-tracker err";
+        statusOfferAuto.setAttribute('data-i18n', 'statusError');
+        statusOfferAuto.setAttribute('data-i18n-append', e.message);
         statusOfferAuto.innerText = translations[currentLang].statusError + e.message;
       }
     }
@@ -2064,7 +2098,9 @@
       }
 
       statusJoinAuto.className = "status-tracker";
-      statusJoinAuto.innerText = translations[currentLang].statusConnectingRoom;
+      statusJoinAuto.setAttribute('data-i18n', 'statusConnectingRoom');
+        statusJoinAuto.removeAttribute('data-i18n-append');
+        statusJoinAuto.innerText = translations[currentLang].statusConnectingRoom;
 
       try {
         if (!db) return;
@@ -2075,7 +2111,9 @@
         // Room doesn't exist at all
         if (!data) {
           statusJoinAuto.className = "status-tracker err";
-          statusJoinAuto.innerText = translations[currentLang].alertRoomExpired;
+          statusJoinAuto.setAttribute('data-i18n', 'alertRoomExpired');
+        statusJoinAuto.removeAttribute('data-i18n-append');
+        statusJoinAuto.innerText = translations[currentLang].alertRoomExpired;
           alert(translations[currentLang].alertRoomExpired);
           return;
         }
@@ -2084,7 +2122,9 @@
         // Wait for the offer to appear (up to 30 seconds)
         let offerData = data.offer;
         if (!offerData) {
-          statusJoinAuto.innerText = translations[currentLang].statusWaitingForPartner;
+          statusJoinAuto.setAttribute('data-i18n', 'statusWaitingForPartner');
+        statusJoinAuto.removeAttribute('data-i18n-append');
+        statusJoinAuto.innerText = translations[currentLang].statusWaitingForPartner;
           offerData = await new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
               roomRef.off('value', handler);
@@ -2111,9 +2151,13 @@
           });
         }
 
+        statusJoinAuto.setAttribute('data-i18n', 'statusCameraChannels');
+        statusJoinAuto.removeAttribute('data-i18n-append');
         statusJoinAuto.innerText = translations[currentLang].statusCameraChannels;
         await initMedia();
 
+        statusJoinAuto.setAttribute('data-i18n', 'statusSpawnNode');
+        statusJoinAuto.removeAttribute('data-i18n-append');
         statusJoinAuto.innerText = translations[currentLang].statusSpawnNode;
         peerConnection = buildPeerConnection(statusJoinAuto);
 
@@ -2128,10 +2172,14 @@
         const sdp = new RTCSessionDescription(offerData);
         await peerConnection.setRemoteDescription(sdp);
 
+        statusJoinAuto.setAttribute('data-i18n', 'statusReciprocalSDP');
+        statusJoinAuto.removeAttribute('data-i18n-append');
         statusJoinAuto.innerText = translations[currentLang].statusReciprocalSDP;
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
 
+        statusJoinAuto.setAttribute('data-i18n', 'statusTrickleIce');
+        statusJoinAuto.removeAttribute('data-i18n-append');
         statusJoinAuto.innerText = translations[currentLang].statusTrickleIce;
 
         // Listen for creator's trickle candidates
@@ -2152,12 +2200,16 @@
           }
         }).catch(err => {
           statusJoinAuto.className = "status-tracker err";
-          statusJoinAuto.innerText = translations[currentLang].statusError + err.message;
+          statusJoinAuto.setAttribute('data-i18n', 'statusError');
+        statusJoinAuto.setAttribute('data-i18n-append', err.message);
+        statusJoinAuto.innerText = translations[currentLang].statusError + err.message;
         });
         console.log('[Firebase] Answer written immediately');
 
       } catch (e) {
         statusJoinAuto.className = "status-tracker err";
+        statusJoinAuto.setAttribute('data-i18n', 'statusRuntimeError');
+        statusJoinAuto.setAttribute('data-i18n-append', e.message);
         statusJoinAuto.innerText = translations[currentLang].statusRuntimeError + e.message;
       }
     }
@@ -2187,10 +2239,14 @@
     // --- MANUAL SIGNALING FALLBACK PATH (BASE64) ---
     async function startManualCreateSession() {
       statusOffer.className = "status-tracker";
-      statusOffer.innerText = translations[currentLang].statusRequestHardware;
+      statusOffer.setAttribute('data-i18n', 'statusRequestHardware');
+        statusOffer.removeAttribute('data-i18n-append');
+        statusOffer.innerText = translations[currentLang].statusRequestHardware;
 
       try {
         await initMedia();
+        statusOffer.setAttribute('data-i18n', 'statusInitP2P');
+        statusOffer.removeAttribute('data-i18n-append');
         statusOffer.innerText = translations[currentLang].statusInitP2P;
         peerConnection = buildPeerConnection(statusOffer);
 
@@ -2200,20 +2256,28 @@
         peerConnection.onicegatheringstatechange = () => {
           if (peerConnection.iceGatheringState === 'complete') {
             txtLocalOffer.value = btoa(JSON.stringify(peerConnection.localDescription));
-            statusOffer.innerText = translations[currentLang].statusInviteKeyComplete;
+            statusOffer.setAttribute('data-i18n', 'statusInviteKeyComplete');
+        statusOffer.removeAttribute('data-i18n-append');
+        statusOffer.innerText = translations[currentLang].statusInviteKeyComplete;
           }
         };
 
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
+        statusOffer.setAttribute('data-i18n', 'statusHarvestingRoutes');
+        statusOffer.removeAttribute('data-i18n-append');
         statusOffer.innerText = translations[currentLang].statusHarvestingRoutes;
 
         if (peerConnection.iceGatheringState === 'complete') {
           txtLocalOffer.value = btoa(JSON.stringify(peerConnection.localDescription));
-          statusOffer.innerText = translations[currentLang].statusInviteKeyComplete;
+          statusOffer.setAttribute('data-i18n', 'statusInviteKeyComplete');
+        statusOffer.removeAttribute('data-i18n-append');
+        statusOffer.innerText = translations[currentLang].statusInviteKeyComplete;
         }
       } catch (e) {
         statusOffer.className = "status-tracker err";
+        statusOffer.setAttribute('data-i18n', 'statusError');
+        statusOffer.setAttribute('data-i18n-append', e.message);
         statusOffer.innerText = translations[currentLang].statusError + e.message;
       }
     }
@@ -2230,12 +2294,18 @@
 
       try {
         statusOffer.className = "status-tracker";
+        statusOffer.setAttribute('data-i18n', 'statusMergeProfiles');
+        statusOffer.removeAttribute('data-i18n-append');
         statusOffer.innerText = translations[currentLang].statusMergeProfiles;
         const sdp = JSON.parse(atob(answerRaw));
         await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+        statusOffer.setAttribute('data-i18n', 'statusEstablishTunnel');
+        statusOffer.removeAttribute('data-i18n-append');
         statusOffer.innerText = translations[currentLang].statusEstablishTunnel;
       } catch (e) {
         statusOffer.className = "status-tracker err";
+        statusOffer.setAttribute('data-i18n', 'alertHandshakeError');
+        statusOffer.removeAttribute('data-i18n-append');
         statusOffer.innerText = translations[currentLang].alertHandshakeError;
       }
     });
@@ -2246,38 +2316,52 @@
       if (!offerRaw) return alert(translations[currentLang].alertPasteInviteFirst);
 
       statusJoin.className = "status-tracker";
-      statusJoin.innerText = translations[currentLang].statusCameraChannels;
+      statusJoin.setAttribute('data-i18n', 'statusCameraChannels');
+        statusJoin.removeAttribute('data-i18n-append');
+        statusJoin.innerText = translations[currentLang].statusCameraChannels;
 
       try {
         await initMedia();
+        statusJoin.setAttribute('data-i18n', 'statusSpawnNode');
+        statusJoin.removeAttribute('data-i18n-append');
         statusJoin.innerText = translations[currentLang].statusSpawnNode;
         peerConnection = buildPeerConnection(statusJoin);
 
         const sdp = JSON.parse(atob(offerRaw));
         await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
 
+        statusJoin.setAttribute('data-i18n', 'statusReciprocalSDP');
+        statusJoin.removeAttribute('data-i18n-append');
         statusJoin.innerText = translations[currentLang].statusReciprocalSDP;
         const answer = await peerConnection.createAnswer();
 
         peerConnection.onicegatheringstatechange = () => {
           if (peerConnection.iceGatheringState === 'complete') {
             txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
-            statusJoin.innerText = translations[currentLang].statusSuccessResponse;
+            statusJoin.setAttribute('data-i18n', 'statusSuccessResponse');
+        statusJoin.removeAttribute('data-i18n-append');
+        statusJoin.innerText = translations[currentLang].statusSuccessResponse;
           }
         };
 
         await peerConnection.setLocalDescription(answer);
 
+        statusJoin.setAttribute('data-i18n', 'statusCollectReturn');
+        statusJoin.removeAttribute('data-i18n-append');
         statusJoin.innerText = translations[currentLang].statusCollectReturn;
         boxAnswerOutput.classList.remove('hidden');
         txtLocalAnswer.value = translations[currentLang].statusAssembleResponse;
 
         if (peerConnection.iceGatheringState === 'complete') {
           txtLocalAnswer.value = btoa(JSON.stringify(peerConnection.localDescription));
-          statusJoin.innerText = translations[currentLang].statusSuccessResponse;
+          statusJoin.setAttribute('data-i18n', 'statusSuccessResponse');
+        statusJoin.removeAttribute('data-i18n-append');
+        statusJoin.innerText = translations[currentLang].statusSuccessResponse;
         }
       } catch (e) {
         statusJoin.className = "status-tracker err";
+        statusJoin.setAttribute('data-i18n', 'statusRuntimeError');
+        statusJoin.setAttribute('data-i18n-append', e.message);
         statusJoin.innerText = translations[currentLang].statusRuntimeError + e.message;
       }
     });
