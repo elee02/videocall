@@ -354,6 +354,42 @@
       background: rgba(255, 255, 255, 0.15);
     }
 
+    .go-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 8px 16px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.2s ease, transform 0.15s ease;
+      letter-spacing: 0.01em;
+    }
+
+    .go-back-link:hover {
+      color: var(--text-main);
+      transform: translateX(-3px);
+    }
+
+    .go-back-link svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.2s ease;
+    }
+
+    .go-back-link:hover svg {
+      transform: translateX(-2px);
+    }
+
     .control-bar {
       position: absolute;
       bottom: 24px;
@@ -879,6 +915,10 @@
         <button class="action-btn secondary" id="btnBypassFirebase">
           <span data-i18n="btnBypassConfig">Use Manual Copy-Paste</span>
         </button>
+        <button class="go-back-link" onclick="goBackToInit()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <span data-i18n="btnGoBack">Go Back</span>
+        </button>
       </div>
 
       <div id="panelOfferCreatedAuto" class="hidden">
@@ -895,6 +935,10 @@
           </svg>
           <span data-i18n="btnCopyCode">Copy Code</span>
         </button>
+        <button class="go-back-link" onclick="goBackToInit()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <span data-i18n="btnGoBack">Go Back</span>
+        </button>
       </div>
 
       <div id="panelReceiveOfferAuto" class="hidden">
@@ -907,6 +951,10 @@
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
           <span data-i18n="btnConnectRoom">Join Session</span>
+        </button>
+        <button class="go-back-link" onclick="goBackToInit()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <span data-i18n="btnGoBack">Go Back</span>
         </button>
       </div>
 
@@ -933,6 +981,10 @@
           </svg>
           <span data-i18n="btnEstablish">Establish Connection</span>
         </button>
+        <button class="go-back-link" onclick="goBackToInit()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <span data-i18n="btnGoBack">Go Back</span>
+        </button>
       </div>
 
       <div id="panelReceiveOffer" class="hidden">
@@ -958,6 +1010,10 @@
             <span data-i18n="btnCopyResponse">Copy Response Key</span>
           </button>
         </div>
+        <button class="go-back-link" onclick="goBackToInit()">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          <span data-i18n="btnGoBack">Go Back</span>
+        </button>
       </div>
     </div>
   </div>
@@ -1111,7 +1167,8 @@
         statFPS: "FPS",
         statResolution: "Res",
         statBitrate: "Bitrate",
-        statLoss: "Loss"
+        statLoss: "Loss",
+        btnGoBack: "Go Back"
       },
       uz: {
         pageTitle: "Pro Connect | Tengdoshlararo Video Aloqa",
@@ -1197,7 +1254,8 @@
         statFPS: "FPS",
         statResolution: "Ruxsat",
         statBitrate: "Tezlik",
-        statLoss: "Yo'qotish"
+        statLoss: "Yo'qotish",
+        btnGoBack: "Orqaga qaytish"
       }
     };
 
@@ -1595,6 +1653,90 @@
 
     let pendingAction = null; // 'create' or 'join'
     let currentRoomId = null;
+
+    /**
+     * Go Back: fully tear down any in-progress session and return to the initial panel.
+     * Cleans up: Firebase listeners + WebSocket, PeerConnection, media streams,
+     * ICE timeouts, and resets all signaling state so no resources leak.
+     */
+    function goBackToInit() {
+      // 1. Disconnect Firebase: detach all listeners, remove abandoned room, go offline
+      disconnectFirebase(currentRoomId);
+
+      // 2. Close PeerConnection if one was created
+      if (peerConnection) {
+        try { peerConnection.close(); } catch (_) {}
+        peerConnection = null;
+      }
+
+      // 3. Stop local camera/mic stream
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+      }
+      localVideo.srcObject = null;
+      remoteVideo.srcObject = null;
+
+      // 4. Stop screen share if active
+      if (screenStream) {
+        screenStream.getTracks().forEach(t => t.stop());
+        screenStream = null;
+      }
+      isScreenSharing = false;
+
+      // 5. Close data channel
+      if (dataChannel) {
+        try { dataChannel.close(); } catch (_) {}
+        dataChannel = null;
+      }
+
+      // 6. Reset signaling state variables
+      currentRoomId = null;
+      pendingAction = null;
+      offerWrittenToFirebase = false;
+
+      // 7. Clear ICE gathering safety timeout
+      if (iceGatheringTimeout) {
+        clearTimeout(iceGatheringTimeout);
+        iceGatheringTimeout = null;
+      }
+
+      // 8. Reset form fields
+      txtLocalOffer.value = '';
+      txtRemoteAnswer.value = '';
+      txtRemoteOfferInput.value = '';
+      txtLocalAnswer.value = '';
+      txtRoomInput.value = '';
+      lblRoomCode.innerHTML = '<span>------</span>';
+
+      // 9. Reset status trackers
+      statusOffer.className = 'status-tracker';
+      statusOffer.innerText = translations[currentLang].statusReady;
+      statusJoin.className = 'status-tracker';
+      statusJoin.innerText = translations[currentLang].statusAwaitingInput;
+      statusOfferAuto.className = 'status-tracker';
+      statusOfferAuto.innerText = 'Status: Preparing...';
+      statusJoinAuto.className = 'status-tracker';
+      statusJoinAuto.innerText = translations[currentLang].statusAwaitingInput;
+
+      // 10. Hide all sub-panels and show init panel
+      panelFirebaseSetup.classList.add('hidden');
+      panelOfferCreatedAuto.classList.add('hidden');
+      panelReceiveOfferAuto.classList.add('hidden');
+      panelOfferCreated.classList.add('hidden');
+      panelReceiveOffer.classList.add('hidden');
+      boxAnswerOutput.classList.add('hidden');
+      panelInit.classList.remove('hidden');
+
+      // 11. Re-initialize Firebase so it's ready for the next attempt
+      //     (goBackToInit called goOffline, so we need to bring it back online)
+      if (getFirebaseConfig()) {
+        initFirebase();
+      }
+
+      // 12. Re-apply translations for any dynamically inserted i18n spans
+      setLanguage(currentLang);
+    }
 
     // Firebase Setup Event Listeners
     document.getElementById('btnSaveFirebaseConfig').addEventListener('click', () => {
