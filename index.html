@@ -1543,10 +1543,15 @@
       const config = getFirebaseConfig();
       if (!config) return false;
       try {
-        if (firebase.apps.length === 0) {
-          firebase.initializeApp(config);
-          console.log('[Firebase] App initialized');
+        // If an app is already initialized, delete it first to allow dynamic re-configuration
+        if (firebase.apps.length > 0) {
+          await firebase.app().delete();
+          console.log('[Firebase] Previous app deleted for reconfiguration');
         }
+
+        firebase.initializeApp(config);
+        console.log('[Firebase] App initialized');
+        
         db = firebase.database();
         // Ensure we start online (in case a previous session called goOffline)
         db.goOnline();
