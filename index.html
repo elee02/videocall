@@ -1473,7 +1473,8 @@
       }
 
       // Re-render config status indicators if the settings panel is visible
-      if (typeof updateSettingsIndicators === 'function' && !panelFirebaseSetup.classList.contains('hidden')) {
+      var fbPanel = document.getElementById('panelFirebaseSetup');
+      if (typeof updateSettingsIndicators === 'function' && fbPanel && !fbPanel.classList.contains('hidden')) {
         updateSettingsIndicators();
       }
     }
