@@ -923,6 +923,7 @@
   <!-- Firebase App and Database SDKs (Compat version for drop-in CDN simplicity) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 </head>
 
 <body>
@@ -1538,7 +1539,7 @@
       return { iceServers, iceCandidatePoolSize: 10 };
     }
 
-    function initFirebase() {
+    async function initFirebase() {
       const config = getFirebaseConfig();
       if (!config) return false;
       try {
@@ -1549,10 +1550,14 @@
         db = firebase.database();
         // Ensure we start online (in case a previous session called goOffline)
         db.goOnline();
-        console.log('[Firebase] Database online');
+
+        // Authenticate anonymously. If the API Key is invalid or rotated, this will throw!
+        await firebase.auth().signInAnonymously();
+
+        console.log('[Firebase] Database online & Authenticated');
         return true;
       } catch (e) {
-        console.error('[Firebase] Init failed', e);
+        console.error('[Firebase] Init/Authentication failed', e);
         return false;
       }
     }
@@ -1979,7 +1984,7 @@
     }
 
     // Firebase Setup Event Listeners
-    document.getElementById('btnSaveFirebaseConfig').addEventListener('click', () => {
+    document.getElementById('btnSaveFirebaseConfig').addEventListener('click', async () => {
       const rawConfigStr = txtFirebaseConfig.value.trim();
       if (!rawConfigStr) {
         alert(translations[currentLang].statusInvalidConfig);
@@ -2016,7 +2021,7 @@
           localStorage.setItem('custom-firebase-config', JSON.stringify(configObj));
           showToast(translations[currentLang].statusConfigSaved);
 
-          const initSuccess = initFirebase();
+          const initSuccess = await initFirebase();
           if (initSuccess) {
             panelFirebaseSetup.classList.add('hidden');
             if (pendingAction === 'create') {
@@ -2085,7 +2090,7 @@
       }
       // Attempt live connection test with timeout
       try {
-        const initOk = initFirebase();
+        const initOk = await initFirebase();
         if (!initOk) {
           return { valid: false, error: translations[currentLang].configInvalidFirebase };
         }
