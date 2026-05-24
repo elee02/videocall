@@ -1471,6 +1471,11 @@
           btnEn.classList.remove('active');
         }
       }
+
+      // Re-render config status indicators if the settings panel is visible
+      if (typeof updateSettingsIndicators === 'function' && !panelFirebaseSetup.classList.contains('hidden')) {
+        updateSettingsIndicators();
+      }
     }
 
     // Synchronously translate initial elements
