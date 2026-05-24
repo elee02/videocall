@@ -81,6 +81,13 @@
       object-fit: contain;
       transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
       background: transparent;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    body.call-active #remoteVideo {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     #localVideo {
@@ -97,6 +104,13 @@
       background: #000;
       cursor: pointer;
       transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    body.call-active #localVideo {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     #localVideo:hover {
@@ -400,7 +414,7 @@
       position: absolute;
       bottom: 24px;
       left: 50%;
-      transform: translateX(-50%);
+      transform: translateX(-50%) translateY(20px);
       background: var(--panel-glass);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
@@ -413,6 +427,15 @@
       border-radius: 100px;
       z-index: 30;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    body.call-active .control-bar {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
     }
 
     .circle-btn {
@@ -839,6 +862,63 @@
         padding: 0 !important;
       }
     }
+
+    /* Config validation status indicators */
+    .config-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      margin-top: -8px;
+      margin-bottom: 12px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+
+    .config-status svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    .config-status.valid {
+      color: #34d399;
+      background: rgba(52, 211, 153, 0.1);
+      border: 1px solid rgba(52, 211, 153, 0.2);
+    }
+
+    .config-status.invalid {
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+    }
+
+    .config-status.warning {
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.1);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+    }
+
+    .config-status.checking {
+      color: var(--accent);
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .config-status.hidden {
+      display: none !important;
+    }
+
+    @keyframes statusPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .config-status.checking {
+      animation: statusPulse 1.5s ease-in-out infinite;
+    }
   </style>
   <!-- Firebase App and Database SDKs (Compat version for drop-in CDN simplicity) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -945,10 +1025,12 @@
         <p data-i18n="firebaseSetupSubtitle">Paste your Web App Firebase config JSON to enable 6-digit room codes, or
           bypass to manual copy-paste.</p>
         <textarea id="txtFirebaseConfig" placeholder='{ "apiKey": "...", "databaseURL": "...", ... }'></textarea>
+        <div id="firebaseConfigStatus" class="config-status hidden"></div>
         <p data-i18n="turnConfigLabel" style="margin-top:8px;margin-bottom:8px;font-size:0.82rem;">TURN Server
           (recommended for bad networks):</p>
         <textarea id="txtTurnConfig" style="height:70px;font-size:0.75rem;"
           placeholder='[{"urls":"turn:server:80","username":"...","credential":"..."}]'></textarea>
+        <div id="turnConfigStatus" class="config-status hidden"></div>
         <button class="action-btn" id="btnSaveFirebaseConfig">
           <span data-i18n="btnSaveConfig">Save &amp; Connect</span>
         </button>
@@ -1225,7 +1307,16 @@
         btnSettings: "Configurations",
         btnCreateManual: "Create Manual",
         btnJoinManual: "Join Manual",
-        manualConnectionDesc: "100% Serverless Connection"
+        manualConnectionDesc: "100% Serverless Connection",
+        configRequiredFirebase: "Firebase configuration is required for automatic room codes. Please configure it in Settings.",
+        configInvalidFirebase: "Firebase connection failed. Please check your API key and database URL.",
+        configWarningTurn: "TURN server not configured. Connections may fail on restricted networks.",
+        configValidating: "Validating configuration...",
+        configFirebaseValid: "Firebase connected successfully",
+        configFirebaseNotSet: "Not configured",
+        configTurnValid: "TURN server configured",
+        configTurnNotSet: "Not configured (optional)",
+        configTurnInvalid: "Invalid format — expected JSON array"
       },
       uz: {
         pageTitle: "Pro Connect | Tengdoshlararo Video Aloqa",
@@ -1322,7 +1413,16 @@
         btnSettings: "Konfiguratsiyalar",
         btnCreateManual: "Qo'lda yaratish",
         btnJoinManual: "Qo'lda ulanish",
-        manualConnectionDesc: "100% serversiz ulanish"
+        manualConnectionDesc: "100% serversiz ulanish",
+        configRequiredFirebase: "Avtomatik xona kodlari uchun Firebase sozlamalari kerak. Iltimos, Konfiguratsiyalar bo'limida sozlang.",
+        configInvalidFirebase: "Firebase ulanishi muvaffaqiyatsiz. API kalit va ma'lumotlar bazasi URL manzilini tekshiring.",
+        configWarningTurn: "TURN server sozlanmagan. Cheklangan tarmoqlarda ulanish muvaffaqiyatsiz bo'lishi mumkin.",
+        configValidating: "Sozlamalar tekshirilmoqda...",
+        configFirebaseValid: "Firebase muvaffaqiyatli ulandi",
+        configFirebaseNotSet: "Sozlanmagan",
+        configTurnValid: "TURN server sozlangan",
+        configTurnNotSet: "Sozlanmagan (ixtiyoriy)",
+        configTurnInvalid: "Noto'g'ri format — JSON massiv kutilgan"
       }
     };
 
@@ -1945,35 +2045,187 @@
     lblRoomCode.addEventListener('click', copyRoomCode);
 
     // Dynamic Route Navigation
-    document.getElementById('btnCreateOffer').addEventListener('click', async () => {
-      panelInit.classList.add('hidden');
+    // --- SVG icon helpers for config status indicators ---
+    const svgCheckCircle = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+    const svgXCircle = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+    const svgAlertTriangle = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+    const svgLoader = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>`;
 
+    function setConfigStatus(elementId, state, message) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      el.className = 'config-status ' + state; // 'valid', 'invalid', 'warning', 'checking', 'hidden'
+      if (state === 'hidden') { el.innerHTML = ''; return; }
+      let icon = '';
+      if (state === 'valid') icon = svgCheckCircle;
+      else if (state === 'invalid') icon = svgXCircle;
+      else if (state === 'warning') icon = svgAlertTriangle;
+      else if (state === 'checking') icon = svgLoader;
+      el.innerHTML = icon + '<span>' + message + '</span>';
+    }
+
+    /**
+     * Validate the stored Firebase config by attempting a live test connection.
+     * Returns { valid: boolean, error: string }
+     */
+    async function validateFirebaseConfig() {
       const config = getFirebaseConfig();
-      if (config) {
-        startFirebaseSession();
+      if (!config) {
+        return { valid: false, error: translations[currentLang].configRequiredFirebase };
+      }
+      // Check required fields
+      if (!config.apiKey || !config.databaseURL) {
+        return { valid: false, error: translations[currentLang].configInvalidFirebase };
+      }
+      // Attempt live connection test with timeout
+      try {
+        const initOk = initFirebase();
+        if (!initOk) {
+          return { valid: false, error: translations[currentLang].configInvalidFirebase };
+        }
+        // Test the database connection with a 5-second timeout
+        const testResult = await Promise.race([
+          db.ref('.info/connected').once('value'),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+        ]);
+        return { valid: true, error: '' };
+      } catch (e) {
+        console.error('[Firebase] Validation failed:', e);
+        return { valid: false, error: translations[currentLang].configInvalidFirebase };
+      }
+    }
+
+    /**
+     * Validate the stored TURN config (non-blocking, warning only).
+     * Returns { valid: boolean, warning: string }
+     */
+    function validateTurnConfig() {
+      const raw = localStorage.getItem('custom-turn-config');
+      if (!raw) {
+        return { valid: false, warning: translations[currentLang].configWarningTurn };
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) {
+          return { valid: false, warning: translations[currentLang].configTurnInvalid };
+        }
+        // Check each entry has 'urls'
+        const allHaveUrls = parsed.every(entry => entry && entry.urls);
+        if (!allHaveUrls) {
+          return { valid: false, warning: translations[currentLang].configTurnInvalid };
+        }
+        return { valid: true, warning: '' };
+      } catch (e) {
+        return { valid: false, warning: translations[currentLang].configTurnInvalid };
+      }
+    }
+
+    /**
+     * Update the settings panel status indicators based on current config state.
+     */
+    function updateSettingsIndicators() {
+      const fbConfig = getFirebaseConfig();
+      if (fbConfig && fbConfig.apiKey && fbConfig.databaseURL) {
+        setConfigStatus('firebaseConfigStatus', 'valid', translations[currentLang].configFirebaseValid);
+      } else if (fbConfig) {
+        setConfigStatus('firebaseConfigStatus', 'invalid', translations[currentLang].configInvalidFirebase);
       } else {
+        setConfigStatus('firebaseConfigStatus', 'warning', translations[currentLang].configFirebaseNotSet);
+      }
+
+      const turnResult = validateTurnConfig();
+      if (turnResult.valid) {
+        setConfigStatus('turnConfigStatus', 'valid', translations[currentLang].configTurnValid);
+      } else if (localStorage.getItem('custom-turn-config')) {
+        setConfigStatus('turnConfigStatus', 'invalid', turnResult.warning);
+      } else {
+        setConfigStatus('turnConfigStatus', 'warning', translations[currentLang].configTurnNotSet);
+      }
+    }
+
+    document.getElementById('btnCreateOffer').addEventListener('click', async () => {
+      const config = getFirebaseConfig();
+
+      if (!config) {
+        // No config at all — send to settings with message
+        panelInit.classList.add('hidden');
         pendingAction = 'create';
         panelFirebaseSetup.classList.remove('hidden');
+        updateSettingsIndicators();
+        showToast(translations[currentLang].configRequiredFirebase);
+        return;
       }
+
+      // Config exists — validate it live
+      panelInit.classList.add('hidden');
+      panelFirebaseSetup.classList.remove('hidden');
+      pendingAction = 'create';
+      setConfigStatus('firebaseConfigStatus', 'checking', translations[currentLang].configValidating);
+      updateSettingsIndicators();
+      setConfigStatus('firebaseConfigStatus', 'checking', translations[currentLang].configValidating);
+
+      const result = await validateFirebaseConfig();
+
+      if (!result.valid) {
+        // Invalid config — stay on settings
+        setConfigStatus('firebaseConfigStatus', 'invalid', result.error);
+        showToast(result.error);
+        return;
+      }
+
+      // Valid — check TURN (warning only) and proceed
+      const turnResult = validateTurnConfig();
+      if (!turnResult.valid) {
+        showToast(turnResult.warning);
+      }
+
+      panelFirebaseSetup.classList.add('hidden');
+      startFirebaseSession();
     });
 
-    document.getElementById('btnGoToJoin').addEventListener('click', () => {
-      panelInit.classList.add('hidden');
-
+    document.getElementById('btnGoToJoin').addEventListener('click', async () => {
       const config = getFirebaseConfig();
-      if (config) {
-        panelReceiveOfferAuto.classList.remove('hidden');
-        txtRoomInput.focus();
-      } else {
+
+      if (!config) {
+        panelInit.classList.add('hidden');
         pendingAction = 'join';
         panelFirebaseSetup.classList.remove('hidden');
+        updateSettingsIndicators();
+        showToast(translations[currentLang].configRequiredFirebase);
+        return;
       }
+
+      // Config exists — validate it live
+      panelInit.classList.add('hidden');
+      panelFirebaseSetup.classList.remove('hidden');
+      pendingAction = 'join';
+      setConfigStatus('firebaseConfigStatus', 'checking', translations[currentLang].configValidating);
+      updateSettingsIndicators();
+      setConfigStatus('firebaseConfigStatus', 'checking', translations[currentLang].configValidating);
+
+      const result = await validateFirebaseConfig();
+
+      if (!result.valid) {
+        setConfigStatus('firebaseConfigStatus', 'invalid', result.error);
+        showToast(result.error);
+        return;
+      }
+
+      const turnResult = validateTurnConfig();
+      if (!turnResult.valid) {
+        showToast(turnResult.warning);
+      }
+
+      panelFirebaseSetup.classList.add('hidden');
+      panelReceiveOfferAuto.classList.remove('hidden');
+      txtRoomInput.focus();
     });
 
     document.getElementById('btnOpenSettings').addEventListener('click', () => {
       panelInit.classList.add('hidden');
       pendingAction = null; // Just opening to edit config
       panelFirebaseSetup.classList.remove('hidden');
+      updateSettingsIndicators();
     });
 
     document.getElementById('btnCreateManual').addEventListener('click', () => {
