@@ -1561,7 +1561,8 @@
 
         console.log('[Firebase] Database online & Authenticated');
 
-        // Clean up any stale room key from a reload on the 6-digit code generation page
+        // Clean up any stale room key from a reload on the 6-digit code generation page (commented out per request)
+        /*
         const pendingRoomId = sessionStorage.getItem('pendingRoomId');
         if (pendingRoomId) {
           console.log('[Firebase] Found pending room from previous reload, cleaning up:', pendingRoomId);
@@ -1574,6 +1575,7 @@
               console.error('[Firebase] Failed to clean up stale room:', err);
             });
         }
+        */
 
         return true;
       } catch (e) {
@@ -1934,11 +1936,11 @@
      * ICE timeouts, and resets all signaling state so no resources leak.
      */
     function goBackToInit() {
-      // Clear pending room ID from sessionStorage so it doesn't try to delete on next reload
-      sessionStorage.removeItem('pendingRoomId');
+      // Do NOT clear pending room ID from sessionStorage so it can be cleaned up on the next session creation
+      // sessionStorage.removeItem('pendingRoomId');
 
-      // 1. Disconnect Firebase: detach all listeners, remove abandoned room, but KEEP database online
-      disconnectFirebase(currentRoomId, true);
+      // 1. Disconnect Firebase: detach all listeners, but do NOT delete room on Go Back (keep online)
+      disconnectFirebase(null, true);
 
       // 2. Close PeerConnection if one was created
       if (peerConnection) {
@@ -2530,13 +2532,17 @@
       db.ref('rooms')
         .orderByChild('createdAt')
         .endAt(cutoff)
-        .once('value', (snap) => {
+        .once('value')
+        .then((snap) => {
           const rooms = snap.val();
           if (rooms) {
             Object.keys(rooms).forEach(key => {
-              db.ref('rooms/' + key).remove();
+              db.ref('rooms/' + key).remove().catch(() => {});
             });
           }
+        })
+        .catch((err) => {
+          console.warn('[Firebase] Query-based expired rooms cleanup is restricted by security rules:', err.message);
         });
     }
 
