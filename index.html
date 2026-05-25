@@ -1721,10 +1721,8 @@
     // Also handle tab-hide on mobile (iOS fires this instead of beforeunload)
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
-        // If we're mid-signaling (no established call), clean up Firebase immediately
-        if (currentRoomId && (!peerConnection || peerConnection.connectionState !== 'connected')) {
-          disconnectFirebase(currentRoomId && !peerConnection ? currentRoomId : null);
-        }
+        // Removed aggressive mid-signaling disconnect to allow app-switching for room code sharing.
+        // Stale rooms are automatically cleaned up on next session or via cleanExpiredRooms().
       }
     });
 
@@ -1870,26 +1868,12 @@
           sessionStorage.removeItem('pendingRoomId');
         }
 
-        // IMPORTANT: Only react to failures AFTER we've been connected at least once,
-        // UNLESS we are using Firebase where we can do an ICE restart.
-        if (!wasEverConnected) {
-          if (pc.connectionState === 'failed' && currentRoomId && !hasAttemptedRestart) {
-            console.warn('[ICE] Initial connection failed, attempting ICE restart...');
-            hasAttemptedRestart = true;
-            statusContainer.setAttribute('data-i18n', 'statusIceRestart');
-        statusContainer.removeAttribute('data-i18n-append');
-        statusContainer.innerText = translations[currentLang].statusIceRestart;
-            pc.restartIce();
-            // Firebase real-time signaling will pick up the new offer/answer negotiation automatically
-            // because trickle ICE listeners are still active (they only detach on disconnectFirebase)
-          }
-          return;
-        }
-
-        // 'failed' is a terminal state — reload immediately
+        // 'failed' is a terminal state — reload immediately to recover cleanly
         if (pc.connectionState === 'failed') {
+          console.error('[WebRTC] Connection failed');
           alert(translations[currentLang].alertConnectionLost);
           window.location.reload();
+          return;
         }
 
         // 'disconnected' is transient — WebRTC may self-recover (e.g. after a brief network blip).
@@ -2341,20 +2325,43 @@
         });
         console.log('[Firebase] Offer written immediately');
 
+        let answerReceived = false;
+        let remoteCandidatesBuffer = [];
+
         // Listen for the remote answer
         const answerHandler = async (snapshot) => {
           const data = snapshot.val();
-          if (data && data.answer && peerConnection.signalingState !== 'stable') {
+          if (data && data.answer && !answerReceived && peerConnection.signalingState !== 'stable') {
+            answerReceived = true;
+            try {
+              roomRef.off('value', answerHandler);
+              activeFirebaseListeners = activeFirebaseListeners.filter(l => l.callback !== answerHandler);
+            } catch (err) {
+              console.warn('[Firebase] Error detaching answerHandler:', err);
+            }
+
             console.log('[Firebase] Answer received — setting remote description');
             statusOfferAuto.setAttribute('data-i18n', 'statusMergeProfiles');
-        statusOfferAuto.removeAttribute('data-i18n-append');
-        statusOfferAuto.innerText = translations[currentLang].statusMergeProfiles;
+            statusOfferAuto.removeAttribute('data-i18n-append');
+            statusOfferAuto.innerText = translations[currentLang].statusMergeProfiles;
             try {
               const rtcSessionDescription = new RTCSessionDescription(data.answer);
               await peerConnection.setRemoteDescription(rtcSessionDescription);
+
+              // Process any buffered remote candidates now that remote description is set
+              console.log('[WebRTC] Remote description set. Processing buffered candidates:', remoteCandidatesBuffer.length);
+              for (const candidate of remoteCandidatesBuffer) {
+                try {
+                  await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch (ce) {
+                  console.error('[WebRTC] Error adding buffered ICE candidate:', ce);
+                }
+              }
+              remoteCandidatesBuffer = [];
+
               statusOfferAuto.setAttribute('data-i18n', 'statusTrickleIce');
-        statusOfferAuto.removeAttribute('data-i18n-append');
-        statusOfferAuto.innerText = translations[currentLang].statusTrickleIce;
+              statusOfferAuto.removeAttribute('data-i18n-append');
+              statusOfferAuto.innerText = translations[currentLang].statusTrickleIce;
             } catch (e) {
               console.error("[WebRTC] Error setting remote description", e);
             }
@@ -2367,7 +2374,12 @@
           const data = snapshot.val();
           if (data) {
             console.log('[Firebase] Remote candidate received (joiner)');
-            peerConnection.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.error('[WebRTC] Error adding ICE candidate', e));
+            if (peerConnection && peerConnection.remoteDescription) {
+              peerConnection.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.error('[WebRTC] Error adding ICE candidate', e));
+            } else {
+              console.log('[WebRTC] Buffering remote candidate (remote description not set yet)');
+              remoteCandidatesBuffer.push(data);
+            }
           }
         };
         addFirebaseListener(roomRef.child('answerCandidates'), 'child_added', answerCandidatesHandler);
@@ -2762,18 +2774,16 @@
       const targetMode = currentFacingMode === 'user' ? 'environment' : 'user';
 
       try {
-        const oldVideoTrack = localStream.getVideoTracks()[0];
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: targetMode } }
+        });
+        const newVideoTrack = newStream.getVideoTracks()[0];
 
+        const oldVideoTrack = localStream.getVideoTracks()[0];
         if (oldVideoTrack) {
           oldVideoTrack.stop();
           localStream.removeTrack(oldVideoTrack);
         }
-
-        const newStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: targetMode } }
-        });
-
-        const newVideoTrack = newStream.getVideoTracks()[0];
 
         if (peerConnection) {
           const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
@@ -2781,6 +2791,7 @@
         }
 
         localStream.addTrack(newVideoTrack);
+        localVideo.srcObject = localStream; // Force update local video element for mobile rendering
         currentFacingMode = targetMode;
 
       } catch (e) {
