@@ -1560,6 +1560,21 @@
         await firebase.auth().signInAnonymously();
 
         console.log('[Firebase] Database online & Authenticated');
+
+        // Clean up any stale room key from a reload on the 6-digit code generation page
+        const pendingRoomId = sessionStorage.getItem('pendingRoomId');
+        if (pendingRoomId) {
+          console.log('[Firebase] Found pending room from previous reload, cleaning up:', pendingRoomId);
+          db.ref('rooms/' + pendingRoomId).remove()
+            .then(() => {
+              console.log('[Firebase] Successfully cleaned up stale room:', pendingRoomId);
+              sessionStorage.removeItem('pendingRoomId');
+            })
+            .catch(err => {
+              console.error('[Firebase] Failed to clean up stale room:', err);
+            });
+        }
+
         return true;
       } catch (e) {
         console.error('[Firebase] Init/Authentication failed', e);
@@ -1580,7 +1595,7 @@
      * Remove all tracked Firebase listeners and disconnect the WebSocket.
      * @param {string|null} abandonedRoomId - If provided, delete this room (creator abandoned)
      */
-    function disconnectFirebase(abandonedRoomId) {
+    async function disconnectFirebase(abandonedRoomId) {
       // 1. Detach every tracked listener
       activeFirebaseListeners.forEach(({ ref, event, callback }) => {
         try { ref.off(event, callback); } catch (_) { /* already detached */ }
@@ -1589,7 +1604,12 @@
 
       // 2. Clean up abandoned room if the creator never finished signaling
       if (abandonedRoomId && db) {
-        try { db.ref('rooms/' + abandonedRoomId).remove(); } catch (_) { }
+        try {
+          await db.ref('rooms/' + abandonedRoomId).remove();
+          console.log('[Firebase] Abandoned room deleted successfully:', abandonedRoomId);
+        } catch (e) {
+          console.error('[Firebase] Failed to delete abandoned room:', e);
+        }
       }
 
       // 3. Clear any pending goOffline timers
@@ -1855,6 +1875,7 @@
             console.log(`[Firebase] Cleaning up room ${currentRoomId}`);
             try { db.ref('rooms/' + currentRoomId).remove(); } catch (_) { }
           }
+          sessionStorage.removeItem('pendingRoomId');
         }
 
         // IMPORTANT: Only react to failures AFTER we've been connected at least once,
@@ -1902,9 +1923,12 @@
      * Cleans up: Firebase listeners + WebSocket, PeerConnection, media streams,
      * ICE timeouts, and resets all signaling state so no resources leak.
      */
-    function goBackToInit() {
+    async function goBackToInit() {
+      // Clear pending room ID from sessionStorage so it doesn't try to delete on next reload
+      sessionStorage.removeItem('pendingRoomId');
+
       // 1. Disconnect Firebase: detach all listeners, remove abandoned room, go offline
-      disconnectFirebase(currentRoomId);
+      await disconnectFirebase(currentRoomId);
 
       // 2. Close PeerConnection if one was created
       if (peerConnection) {
@@ -2257,6 +2281,18 @@
 
     // --- AUTOMATED SIGNALING PATH (FIREBASE) ---
     async function startFirebaseSession() {
+      // Clean up any stale room key from a previous attempt in this tab session
+      const staleRoomId = sessionStorage.getItem('pendingRoomId');
+      if (staleRoomId && db) {
+        try {
+          console.log('[Firebase] Deleting unfinished stale room from previous attempt:', staleRoomId);
+          await db.ref('rooms/' + staleRoomId).remove();
+        } catch (e) {
+          console.error('[Firebase] Failed to delete previous stale room:', e);
+        }
+        sessionStorage.removeItem('pendingRoomId');
+      }
+
       panelOfferCreatedAuto.classList.remove('hidden');
       statusOfferAuto.className = "status-tracker";
       statusOfferAuto.setAttribute('data-i18n', 'statusRequestHardware');
@@ -2275,6 +2311,7 @@
 
         // Generate a random 6-digit room code but don't reveal it yet
         currentRoomId = Math.floor(100000 + Math.random() * 900000).toString();
+        sessionStorage.setItem('pendingRoomId', currentRoomId);
         lblRoomCode.innerText = '------';
 
         // Clean up expired rooms older than 10 mins
