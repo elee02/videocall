@@ -1561,22 +1561,6 @@
 
         console.log('[Firebase] Database online & Authenticated');
 
-        // Clean up any stale room key from a reload on the 6-digit code generation page (commented out per request)
-        /*
-        const pendingRoomId = sessionStorage.getItem('pendingRoomId');
-        if (pendingRoomId) {
-          console.log('[Firebase] Found pending room from previous reload, cleaning up:', pendingRoomId);
-          db.ref('rooms/' + pendingRoomId).remove()
-            .then(() => {
-              console.log('[Firebase] Successfully cleaned up stale room:', pendingRoomId);
-              sessionStorage.removeItem('pendingRoomId');
-            })
-            .catch(err => {
-              console.error('[Firebase] Failed to clean up stale room:', err);
-            });
-        }
-        */
-
         return true;
       } catch (e) {
         console.error('[Firebase] Init/Authentication failed', e);
@@ -1656,10 +1640,6 @@
 
     // Try to initialize Firebase immediately
     const isFirebaseConfigured = initFirebase();
-    // HIDE SETTINGS BUTTON IF FIREBASE IS CONFIGURED
-    // if (isFirebaseConfigured) {
-    //   document.getElementById('btnOpenSettings').style.display = 'none';
-    // }
 
     let localStream, peerConnection, dataChannel;
     let currentFacingMode = 'user';
@@ -1937,7 +1917,6 @@
      */
     function goBackToInit() {
       // Do NOT clear pending room ID from sessionStorage so it can be cleaned up on the next session creation
-      // sessionStorage.removeItem('pendingRoomId');
 
       // 1. Disconnect Firebase: detach all listeners, but do NOT delete room on Go Back (keep online)
       disconnectFirebase(null, true);
