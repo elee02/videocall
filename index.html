@@ -1595,7 +1595,7 @@
      * Remove all tracked Firebase listeners and disconnect the WebSocket.
      * @param {string|null} abandonedRoomId - If provided, delete this room (creator abandoned)
      */
-    async function disconnectFirebase(abandonedRoomId) {
+    function disconnectFirebase(abandonedRoomId, keepOnline = false) {
       // 1. Detach every tracked listener
       activeFirebaseListeners.forEach(({ ref, event, callback }) => {
         try { ref.off(event, callback); } catch (_) { /* already detached */ }
@@ -1603,12 +1603,19 @@
       activeFirebaseListeners = [];
 
       // 2. Clean up abandoned room if the creator never finished signaling
+      let removePromise = Promise.resolve();
       if (abandonedRoomId && db) {
         try {
-          await db.ref('rooms/' + abandonedRoomId).remove();
-          console.log('[Firebase] Abandoned room deleted successfully:', abandonedRoomId);
+          console.log('[Firebase] Cleaning up room in background:', abandonedRoomId);
+          removePromise = db.ref('rooms/' + abandonedRoomId).remove()
+            .then(() => {
+              console.log('[Firebase] Cleaned up room successfully:', abandonedRoomId);
+            })
+            .catch(e => {
+              console.error('[Firebase] Failed to clean up room:', e);
+            });
         } catch (e) {
-          console.error('[Firebase] Failed to delete abandoned room:', e);
+          console.error('[Firebase] Error starting remove operation:', e);
         }
       }
 
@@ -1625,9 +1632,11 @@
       }
 
       // 5. Actually close the WebSocket
-      if (db) {
-        try { db.goOffline(); } catch (_) { }
-        console.log('[Firebase] goOffline – WebSocket closed');
+      if (!keepOnline && db) {
+        removePromise.finally(() => {
+          try { db.goOffline(); } catch (_) { }
+          console.log('[Firebase] goOffline – WebSocket closed');
+        });
       }
     }
 
@@ -1923,12 +1932,12 @@
      * Cleans up: Firebase listeners + WebSocket, PeerConnection, media streams,
      * ICE timeouts, and resets all signaling state so no resources leak.
      */
-    async function goBackToInit() {
+    function goBackToInit() {
       // Clear pending room ID from sessionStorage so it doesn't try to delete on next reload
       sessionStorage.removeItem('pendingRoomId');
 
-      // 1. Disconnect Firebase: detach all listeners, remove abandoned room, go offline
-      await disconnectFirebase(currentRoomId);
+      // 1. Disconnect Firebase: detach all listeners, remove abandoned room, but KEEP database online
+      disconnectFirebase(currentRoomId, true);
 
       // 2. Close PeerConnection if one was created
       if (peerConnection) {
@@ -2001,12 +2010,6 @@
       panelReceiveOffer.classList.add('hidden');
       boxAnswerOutput.classList.add('hidden');
       panelInit.classList.remove('hidden');
-
-      // 11. Re-initialize Firebase so it's ready for the next attempt
-      //     (goBackToInit called goOffline, so we need to bring it back online)
-      if (getFirebaseConfig()) {
-        initFirebase();
-      }
 
       // 12. Re-apply translations for any dynamically inserted i18n spans
       setLanguage(currentLang);
