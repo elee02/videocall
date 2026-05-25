@@ -1730,16 +1730,17 @@
         e.returnValue = '';
       }
 
-      // Best-effort cleanup: close Firebase WebSocket so we don't leave
-      // an idle connection from an unfinished handshake or abandoned session
-      disconnectFirebase(currentRoomId && !peerConnection ? currentRoomId : null);
+      // Best-effort cleanup: close Firebase WebSocket if there is an active session
+      if (currentRoomId) {
+        disconnectFirebase(currentRoomId && !peerConnection ? currentRoomId : null);
+      }
     });
 
     // Also handle tab-hide on mobile (iOS fires this instead of beforeunload)
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         // If we're mid-signaling (no established call), clean up Firebase immediately
-        if (!peerConnection || peerConnection.connectionState !== 'connected') {
+        if (currentRoomId && (!peerConnection || peerConnection.connectionState !== 'connected')) {
           disconnectFirebase(currentRoomId && !peerConnection ? currentRoomId : null);
         }
       }
