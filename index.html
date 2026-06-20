@@ -2771,13 +2771,23 @@
 
     document.getElementById('btnFlip').addEventListener('click', async () => {
       if (isScreenSharing) return;
+      if (!localStream || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+
       const targetMode = currentFacingMode === 'user' ? 'environment' : 'user';
+      const flipButton = document.getElementById('btnFlip');
+      flipButton.classList.add('active');
 
       try {
         const newStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: targetMode } }
+          video: { facingMode: { ideal: targetMode } },
+          audio: false
         });
+
         const newVideoTrack = newStream.getVideoTracks()[0];
+        if (!newVideoTrack) {
+          newStream.getTracks().forEach(track => track.stop());
+          throw new Error('No video track');
+        }
 
         const oldVideoTrack = localStream.getVideoTracks()[0];
         if (oldVideoTrack) {
@@ -2785,17 +2795,21 @@
           localStream.removeTrack(oldVideoTrack);
         }
 
+        localStream.addTrack(newVideoTrack);
+        localVideo.srcObject = localStream;
+
         if (peerConnection) {
           const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-          if (sender) sender.replaceTrack(newVideoTrack);
+          if (sender) {
+            await sender.replaceTrack(newVideoTrack);
+          }
         }
 
-        localStream.addTrack(newVideoTrack);
-        localVideo.srcObject = localStream; // Force update local video element for mobile rendering
         currentFacingMode = targetMode;
-
+        flipButton.classList.toggle('off', currentFacingMode === 'environment');
       } catch (e) {
         console.error(e);
+        flipButton.classList.remove('active', 'off');
         showToast(translations[currentLang].toastHardwareLimit);
       }
     });
