@@ -2777,6 +2777,14 @@
       const flipButton = document.getElementById('btnFlip');
       flipButton.classList.add('active');
 
+      const oldVideoTrack = localStream.getVideoTracks()[0];
+      const wasEnabled = oldVideoTrack ? oldVideoTrack.enabled : true;
+
+      if (oldVideoTrack) {
+        oldVideoTrack.stop();
+        localStream.removeTrack(oldVideoTrack);
+      }
+
       try {
         const newStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: targetMode } },
@@ -2786,16 +2794,14 @@
         const newVideoTrack = newStream.getVideoTracks()[0];
         if (!newVideoTrack) {
           newStream.getTracks().forEach(track => track.stop());
-          throw new Error('No video track');
+          throw new Error('No video track acquired');
         }
 
-        const oldVideoTrack = localStream.getVideoTracks()[0];
-        if (oldVideoTrack) {
-          oldVideoTrack.stop();
-          localStream.removeTrack(oldVideoTrack);
-        }
-
+        newVideoTrack.enabled = wasEnabled;
         localStream.addTrack(newVideoTrack);
+
+        // Force browser to refresh tracks by clearing and resetting the video source
+        localVideo.srcObject = null;
         localVideo.srcObject = localStream;
 
         if (peerConnection) {
@@ -2806,10 +2812,36 @@
         }
 
         currentFacingMode = targetMode;
+        flipButton.classList.remove('active');
         flipButton.classList.toggle('off', currentFacingMode === 'environment');
       } catch (e) {
-        console.error(e);
-        flipButton.classList.remove('active', 'off');
+        console.error('Camera flip failed, trying to restore original camera:', e);
+        
+        // Attempt recovery using the original facing mode
+        try {
+          const recoveryStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: currentFacingMode } },
+            audio: false
+          });
+          const recoveryTrack = recoveryStream.getVideoTracks()[0];
+          if (recoveryTrack) {
+            recoveryTrack.enabled = wasEnabled;
+            localStream.addTrack(recoveryTrack);
+            localVideo.srcObject = null;
+            localVideo.srcObject = localStream;
+            if (peerConnection) {
+              const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+              if (sender) {
+                await sender.replaceTrack(recoveryTrack);
+              }
+            }
+          }
+        } catch (recoveryError) {
+          console.error('Camera recovery also failed:', recoveryError);
+        }
+
+        flipButton.classList.remove('active');
+        flipButton.classList.toggle('off', currentFacingMode === 'environment');
         showToast(translations[currentLang].toastHardwareLimit);
       }
     });
