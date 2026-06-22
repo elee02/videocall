@@ -919,6 +919,88 @@
     .config-status.checking {
       animation: statusPulse 1.5s ease-in-out infinite;
     }
+
+    /* ====== Cinema / Immersive Mode ====== */
+    /* Elements that fade out when UI is hidden during an active call */
+    body.call-active .control-bar,
+    body.call-active #localVideo,
+    body.call-active .lang-select,
+    body.call-active #btnSpeakerToggle,
+    body.call-active #statsContainer,
+    body.call-active #chatPanel {
+      transition: opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1),
+                  transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    body.call-active.ui-hidden .control-bar {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translateX(-50%) translateY(20px) !important;
+    }
+
+    body.call-active.ui-hidden #localVideo {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    body.call-active.ui-hidden .lang-select {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    body.call-active.ui-hidden #btnSpeakerToggle {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    body.call-active.ui-hidden #statsContainer {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    body.call-active.ui-hidden #chatPanel:not(.hidden) {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    /* Subtle bottom-center tap hint that appears when UI is hidden (mobile only) */
+    .cinema-tap-hint {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: rgba(255, 255, 255, 0.35);
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 6px 16px;
+      border-radius: 20px;
+      z-index: 5;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.6s ease;
+      letter-spacing: 0.02em;
+    }
+
+    body.call-active.ui-hidden .cinema-tap-hint {
+      opacity: 1;
+      pointer-events: auto;
+      animation: hintPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes hintPulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 0.9; }
+    }
+
+    @media (min-width: 768px) {
+      .cinema-tap-hint {
+        display: none; /* Desktop doesn't need tap hint — mouse movement reveals UI */
+      }
+    }
   </style>
   <!-- Firebase App and Database SDKs (Compat version for drop-in CDN simplicity) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -964,6 +1046,9 @@
         </path>
       </svg>
     </button>
+
+    <!-- Cinema Mode Tap Hint (mobile only) -->
+    <div class="cinema-tap-hint" id="cinemaTapHint" data-i18n="cinemaTapHint">Tap to show controls</div>
 
     <!-- Chat Overlay -->
     <div id="chatPanel" class="hidden">
@@ -1317,7 +1402,8 @@
         configFirebaseNotSet: "Not configured",
         configTurnValid: "TURN server configured",
         configTurnNotSet: "Not configured (optional)",
-        configTurnInvalid: "Invalid format — expected JSON array"
+        configTurnInvalid: "Invalid format — expected JSON array",
+        cinemaTapHint: "Tap to show controls"
       },
       uz: {
         pageTitle: "Pro Connect | Tengdoshlararo Video Aloqa",
@@ -1423,7 +1509,8 @@
         configFirebaseNotSet: "Sozlanmagan",
         configTurnValid: "TURN server sozlangan",
         configTurnNotSet: "Sozlanmagan (ixtiyoriy)",
-        configTurnInvalid: "Noto'g'ri format — JSON massiv kutilgan"
+        configTurnInvalid: "Noto'g'ri format — JSON massiv kutilgan",
+        cinemaTapHint: "Boshqaruv tugmalarini ko'rsatish uchun bosing"
       }
     };
 
@@ -3115,6 +3202,95 @@
 
     localVideo.addEventListener('click', handleVideoSwap);
     remoteVideo.addEventListener('click', handleVideoSwap);
+
+    // ====== Cinema / Immersive Mode ======
+    // Auto-hide overlay UI after 3 seconds of inactivity during active call.
+    // Mouse move (desktop) or tap (mobile) reveals UI temporarily.
+    let cinemaIdleTimer = null;
+    const CINEMA_IDLE_DELAY = 3000; // ms before UI hides
+
+    function startCinemaIdleTimer() {
+      clearCinemaIdleTimer();
+      cinemaIdleTimer = setTimeout(() => {
+        if (document.body.classList.contains('call-active')) {
+          document.body.classList.add('ui-hidden');
+        }
+      }, CINEMA_IDLE_DELAY);
+    }
+
+    function clearCinemaIdleTimer() {
+      if (cinemaIdleTimer) {
+        clearTimeout(cinemaIdleTimer);
+        cinemaIdleTimer = null;
+      }
+    }
+
+    function revealCinemaUI() {
+      if (!document.body.classList.contains('call-active')) return;
+      document.body.classList.remove('ui-hidden');
+      startCinemaIdleTimer();
+    }
+
+    // Desktop: mouse movement reveals UI
+    document.addEventListener('mousemove', () => {
+      if (document.body.classList.contains('call-active')) {
+        revealCinemaUI();
+      }
+    });
+
+    // Mobile: touchstart on the video container reveals UI
+    videoContainer.addEventListener('touchstart', (e) => {
+      if (!document.body.classList.contains('call-active')) return;
+
+      // If UI is hidden, just reveal it and consume the tap
+      if (document.body.classList.contains('ui-hidden')) {
+        e.preventDefault();
+        revealCinemaUI();
+        return;
+      }
+
+      // If tapping directly on the remote video (not a button/control), reset timer
+      if (e.target === remoteVideo || e.target === videoContainer) {
+        revealCinemaUI();
+      }
+    }, { passive: false });
+
+    // Clicking on any control button should reset the idle timer
+    document.querySelector('.control-bar').addEventListener('click', () => {
+      if (document.body.classList.contains('call-active')) {
+        revealCinemaUI();
+      }
+    });
+
+    // Also keep UI visible while chat input is focused
+    chatInput.addEventListener('focus', () => {
+      clearCinemaIdleTimer();
+      document.body.classList.remove('ui-hidden');
+    });
+
+    chatInput.addEventListener('blur', () => {
+      if (document.body.classList.contains('call-active')) {
+        startCinemaIdleTimer();
+      }
+    });
+
+    // Observe body class changes to start/stop cinema timer with call lifecycle
+    const cinemaObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.attributeName === 'class') {
+          const body = document.body;
+          if (body.classList.contains('call-active')) {
+            // Call just became active — start the idle timer
+            startCinemaIdleTimer();
+          } else {
+            // Call ended — clean up
+            clearCinemaIdleTimer();
+            body.classList.remove('ui-hidden');
+          }
+        }
+      }
+    });
+    cinemaObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
     btnEndCall.addEventListener('click', () => {
       if (confirm(translations[currentLang].confirmEndCall)) {
