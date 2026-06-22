@@ -2933,6 +2933,9 @@
       }
     });
 
+    // AudioContext used to mix mic + screen audio; stored for cleanup
+    let screenAudioCtx = null;
+
     document.getElementById('btnScreen').addEventListener('click', async (e) => {
       if (!peerConnection) return alert(translations[currentLang].alertConnectFirst);
       if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
@@ -2943,17 +2946,46 @@
 
       if (!isScreenSharing) {
         try {
-          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-          const screenTrack = screenStream.getVideoTracks()[0];
+          // Request both video and audio (system audio) from getDisplayMedia.
+          // The browser will show the user a checkbox to share system/tab audio.
+          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+          const screenVideoTrack = screenStream.getVideoTracks()[0];
 
-          const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-          if (sender) sender.replaceTrack(screenTrack);
+          // Replace video track in the peer connection
+          const videoSender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (videoSender) videoSender.replaceTrack(screenVideoTrack);
 
           localVideo.srcObject = screenStream;
           isScreenSharing = true;
           btn.classList.add('active');
 
-          screenTrack.onended = () => stopScreenSharing(btn);
+          // --- Audio mixing: blend mic + screen audio via AudioContext ---
+          const screenAudioTracks = screenStream.getAudioTracks();
+          const micAudioTracks = localStream ? localStream.getAudioTracks() : [];
+          const audioSender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
+
+          if (screenAudioTracks.length > 0 && micAudioTracks.length > 0 && audioSender) {
+            // Close any previous mixing context
+            if (screenAudioCtx) { screenAudioCtx.close(); screenAudioCtx = null; }
+
+            screenAudioCtx = new AudioContext();
+            const destination = screenAudioCtx.createMediaStreamDestination();
+
+            // Mic source — connect at normal gain
+            const micSource = screenAudioCtx.createMediaStreamSource(new MediaStream(micAudioTracks));
+            micSource.connect(destination);
+
+            // Screen/system audio source — connect at normal gain
+            const screenAudioSource = screenAudioCtx.createMediaStreamSource(new MediaStream(screenAudioTracks));
+            screenAudioSource.connect(destination);
+
+            // Send the blended track to the peer
+            const mixedTrack = destination.stream.getAudioTracks()[0];
+            audioSender.replaceTrack(mixedTrack);
+          }
+          // If no screen audio was granted, fall through — mic stays as-is
+
+          screenVideoTrack.onended = () => stopScreenSharing(btn);
         } catch (err) {
           showToast(translations[currentLang].toastScreenShareCancelled);
         }
@@ -2963,13 +2995,32 @@
     });
 
     function stopScreenSharing(btnElement) {
-      if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+      // Tear down the AudioContext mixer
+      if (screenAudioCtx) {
+        screenAudioCtx.close();
+        screenAudioCtx = null;
+      }
 
-      const videoTrack = localStream.getVideoTracks()[0];
-      const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-      if (sender && videoTrack) sender.replaceTrack(videoTrack);
+      // Stop all screen capture tracks
+      if (screenStream) {
+        screenStream.getTracks().forEach(t => t.stop());
+        screenStream = null;
+      }
 
-      localVideo.srcObject = localStream;
+      // Restore original mic-only audio track
+      if (localStream) {
+        const micTrack = localStream.getAudioTracks()[0];
+        const audioSender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
+        if (audioSender && micTrack) audioSender.replaceTrack(micTrack);
+
+        // Restore camera video track
+        const videoTrack = localStream.getVideoTracks()[0];
+        const videoSender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (videoSender && videoTrack) videoSender.replaceTrack(videoTrack);
+
+        localVideo.srcObject = localStream;
+      }
+
       isScreenSharing = false;
       btnElement.classList.remove('active');
     }
