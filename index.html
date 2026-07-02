@@ -923,7 +923,6 @@
     /* ====== Cinema / Immersive Mode ====== */
     /* Elements that fade out when UI is hidden during an active call */
     body.call-active .control-bar,
-    body.call-active #localVideo,
     body.call-active .lang-select,
     body.call-active #btnSpeakerToggle,
     body.call-active #statsContainer,
@@ -938,9 +937,98 @@
       transform: translateX(-50%) translateY(20px) !important;
     }
 
-    body.call-active.ui-hidden #localVideo {
+    /* ====== PIP Manual Hide/Show ====== */
+    /* When PIP is manually hidden: hide whichever video is in PIP position */
+    body.call-active.pip-manually-hidden #localVideo {
       opacity: 0 !important;
       pointer-events: none !important;
+      transform: scale(0.8);
+    }
+    /* When swapped, #remoteVideo is in PIP — hide that instead */
+    body.call-active.pip-manually-hidden .video-container.swapped #localVideo {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      transform: none;
+    }
+    body.call-active.pip-manually-hidden .video-container.swapped #remoteVideo {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: scale(0.8);
+    }
+
+    /* PIP toggle button — sits on the PIP window */
+    #btnPipToggle {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      z-index: 15;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.85);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s ease;
+      padding: 0;
+    }
+
+    body.call-active #btnPipToggle {
+      display: flex;
+    }
+
+    #btnPipToggle:hover {
+      background: rgba(0, 0, 0, 0.75);
+      transform: scale(1.1);
+    }
+
+    #btnPipToggle svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Position the PIP toggle relative to the PIP window */
+    /* Default (not swapped): PIP is #localVideo at top-right */
+    #btnPipToggle {
+      /* Overlap top-left corner of the PIP */
+      top: 20px;
+      right: 20px;
+    }
+
+    /* When PIP is hidden, move button to a corner show-again position */
+    body.call-active.pip-manually-hidden #btnPipToggle {
+      top: 24px;
+      right: 24px;
+      background: rgba(59, 130, 246, 0.2);
+      border-color: rgba(59, 130, 246, 0.4);
+      color: var(--accent);
+    }
+
+    body.call-active.pip-manually-hidden #btnPipToggle:hover {
+      background: rgba(59, 130, 246, 0.35);
+    }
+
+    @media (min-width: 768px) {
+      #btnPipToggle {
+        top: 28px;
+        right: 28px;
+      }
+    }
+
+    /* Also hide the PIP toggle button during cinema ui-hidden, but show it back on reveal */
+    body.call-active.ui-hidden #btnPipToggle {
+      opacity: 0;
+      pointer-events: none;
     }
 
     body.call-active.ui-hidden .lang-select {
@@ -1021,6 +1109,20 @@
   <div class="video-container" id="videoContainer">
     <video id="remoteVideo" autoplay playsinline></video>
     <video id="localVideo" autoplay muted playsinline></video>
+
+    <!-- PIP Hide/Show Toggle Button -->
+    <button id="btnPipToggle" data-i18n-title="tooltipPipToggle" title="Hide/Show Picture-in-Picture">
+      <!-- Eye icon (visible when PIP is shown — click to hide) -->
+      <svg class="icon-pip-visible" viewBox="0 0 24 24">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+      </svg>
+      <!-- Eye-off icon (visible when PIP is hidden — click to show) -->
+      <svg class="icon-pip-hidden" viewBox="0 0 24 24" style="display:none;">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+        <line x1="1" y1="1" x2="23" y2="23"></line>
+      </svg>
+    </button>
 
     <!-- Glowing Neon Stats Panel -->
     <div id="statsContainer" class="stats-panel-glow hidden">
@@ -1403,7 +1505,9 @@
         configTurnValid: "TURN server configured",
         configTurnNotSet: "Not configured (optional)",
         configTurnInvalid: "Invalid format — expected JSON array",
-        cinemaTapHint: "Tap to show controls"
+        cinemaTapHint: "Tap to show controls",
+        tooltipPipToggle: "Hide Small Window",
+        tooltipPipShow: "Show Small Window"
       },
       uz: {
         pageTitle: "Pro Connect | Tengdoshlararo Video Aloqa",
@@ -1510,7 +1614,9 @@
         configTurnValid: "TURN server sozlangan",
         configTurnNotSet: "Sozlanmagan (ixtiyoriy)",
         configTurnInvalid: "Noto'g'ri format — JSON massiv kutilgan",
-        cinemaTapHint: "Boshqaruv tugmalarini ko'rsatish uchun bosing"
+        cinemaTapHint: "Boshqaruv tugmalarini ko'rsatish uchun bosing",
+        tooltipPipToggle: "Kichik oynani yashirish",
+        tooltipPipShow: "Kichik oynani ko'rsatish"
       }
     };
 
@@ -3254,6 +3360,32 @@
     localVideo.addEventListener('click', handleVideoSwap);
     remoteVideo.addEventListener('click', handleVideoSwap);
 
+    // ====== PIP Manual Hide/Show ======
+    const btnPipToggle = document.getElementById('btnPipToggle');
+    const iconPipVisible = btnPipToggle.querySelector('.icon-pip-visible');
+    const iconPipHidden = btnPipToggle.querySelector('.icon-pip-hidden');
+
+    function updatePipIcons(isHidden) {
+      iconPipVisible.style.display = isHidden ? 'none' : 'block';
+      iconPipHidden.style.display = isHidden ? 'block' : 'none';
+      btnPipToggle.title = isHidden
+        ? translations[currentLang].tooltipPipShow
+        : translations[currentLang].tooltipPipToggle;
+    }
+
+    btnPipToggle.addEventListener('click', (e) => {
+      e.stopPropagation(); // Don't trigger video swap or cinema reveal
+      const body = document.body;
+      const isCurrentlyHidden = body.classList.contains('pip-manually-hidden');
+
+      if (isCurrentlyHidden) {
+        body.classList.remove('pip-manually-hidden');
+      } else {
+        body.classList.add('pip-manually-hidden');
+      }
+      updatePipIcons(!isCurrentlyHidden);
+    });
+
     // ====== Cinema / Immersive Mode ======
     // Auto-hide overlay UI after 3 seconds of inactivity during active call.
     // Mouse move (desktop) or tap (mobile) reveals UI temporarily.
@@ -3337,6 +3469,8 @@
             // Call ended — clean up
             clearCinemaIdleTimer();
             body.classList.remove('ui-hidden');
+            body.classList.remove('pip-manually-hidden');
+            updatePipIcons(false);
           }
         }
       }
